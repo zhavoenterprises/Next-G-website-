@@ -57,7 +57,7 @@ function ProjectsPage() {
 
           <div className="mt-8 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {list.map((p, i) => (
-              <Reveal key={p.slug} delay={i * 60}>
+              <Reveal key={`${filter}-${p.slug}`} delay={i * 60}>
                 <Link
                   to="/projects/$slug"
                   params={{ slug: p.slug }}
