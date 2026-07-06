@@ -651,7 +651,7 @@ function Home() {
 
       {/* TESTIMONIALS SECTION */}
       <section id="testimonials" className="relative bg-offwhite border-b border-border overflow-hidden">
-        <div className="mx-auto max-w-7xl px-5 py-20 lg:px-8">
+        <div className="mx-auto max-w-7xl px-5 pt-20 lg:px-8">
           <SectionHeading
             eyebrow="Testimonials"
             title={
@@ -664,7 +664,9 @@ function Home() {
             }
             intro="Read real stories from residential and commercial clients who experienced our transparent, BOQ-backed engineering discipline first-hand."
           />
-          
+        </div>
+        
+        <div className="pb-20">
           <Carousel items={testimonialCards} />
         </div>
       </section>

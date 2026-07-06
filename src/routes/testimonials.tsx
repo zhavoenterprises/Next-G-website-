@@ -91,10 +91,8 @@ function TestimonialsPage() {
         }
         intro="Read real stories from residential and commercial clients who experienced our transparent, BOQ-backed engineering discipline first-hand."
       />
-      <section className="bg-offwhite bp-grid overflow-hidden">
-        <div className="mx-auto max-w-7xl px-5 py-12 lg:px-8">
-          <Carousel items={cards} />
-        </div>
+      <section className="bg-offwhite bp-grid overflow-hidden py-12">
+        <Carousel items={cards} />
       </section>
     </>
   );

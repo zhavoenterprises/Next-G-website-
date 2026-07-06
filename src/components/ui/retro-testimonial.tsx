@@ -108,10 +108,7 @@ const Carousel = ({ items, initialScroll = 0 }: iCarouselProps) => {
 					)}
 				/>
 				<div
-					className={cn(
-						"flex flex-row justify-start gap-4 pl-3",
-						"max-w-5xl mx-auto",
-					)}
+					className="flex flex-row justify-start gap-6 pl-[max(1.25rem,calc((100vw-80rem)/2+1.25rem))] pr-[max(1.25rem,calc((100vw-80rem)/2+1.25rem))]"
 				>
 					{items.map((item, index) => {
 						return (
@@ -127,7 +124,7 @@ const Carousel = ({ items, initialScroll = 0 }: iCarouselProps) => {
 									},
 								}}
 								key={`card-${index}`}
-								className="last:pr-[5%] md:last:pr-[33%] rounded-3xl"
+								className="last:pr-[5%] md:last:pr-[33%] rounded-3xl shrink-0"
 							>
 								{React.cloneElement(item, {
 									onCardClose: () => {
