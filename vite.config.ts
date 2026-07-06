@@ -18,7 +18,7 @@ export default defineConfig(async ({ command }): Promise<import("vite").UserConf
     const { nitro } = await import("nitro/vite");
     plugins.push(
       nitro({
-        preset: "cloudflare-module",
+        preset: "cloudflare-pages",
       }),
     );
   }
