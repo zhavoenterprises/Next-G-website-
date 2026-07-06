@@ -16,7 +16,6 @@ const NAV = [
 export function Header() {
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const [lang, setLang] = useState<"EN" | "TA">("EN");
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8);
@@ -56,15 +55,6 @@ export function Header() {
               </Link>
             ))}
           </nav>
-
-          <button
-            onClick={() => setLang(lang === "EN" ? "TA" : "EN")}
-            aria-label="Toggle language"
-            className="mono-label hidden sm:inline-flex items-center gap-1 border border-border px-2.5 py-1.5 text-navy transition-colors hover:border-orange hover:text-orange"
-            style={{ borderRadius: 2 }}
-          >
-            {lang} / {lang === "EN" ? "TA" : "EN"}
-          </button>
 
           <a
             href={`tel:${COMPANY.phone}`}
