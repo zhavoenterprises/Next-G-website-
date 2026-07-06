@@ -4,13 +4,13 @@ import { COMPANY } from "@/lib/site-data";
 import { Menu, X, Phone } from "lucide-react";
 
 const NAV = [
-  { to: "/", label: "Home" },
-  { to: "/about", label: "About" },
-  { to: "/projects", label: "Projects" },
-  { to: "/design-studio", label: "Design Studio" },
-  { to: "/services", label: "Services" },
-  { to: "/testimonials", label: "Testimonials" },
-  { to: "/contact", label: "Contact" },
+  { to: "/", hash: "home", label: "Home" },
+  { to: "/", hash: "about", label: "About" },
+  { to: "/", hash: "services", label: "Services" },
+  { to: "/", hash: "projects", label: "Projects" },
+  { to: "/", hash: "design-studio", label: "Design Studio" },
+  { to: "/", hash: "testimonials", label: "Testimonials" },
+  { to: "/", hash: "contact", label: "Contact" },
 ] as const;
 
 export function Header() {
@@ -31,7 +31,7 @@ export function Header() {
       }`}
     >
       <div className="mx-auto grid max-w-7xl grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-5 py-4 lg:px-8">
-        <Link to="/" className="flex min-w-0 items-center gap-3">
+        <Link to="/" hash="home" className="flex min-w-0 items-center gap-3 cursor-pointer">
           <span className="grid h-10 w-10 shrink-0 place-items-center bg-navy text-offwhite" style={{ borderRadius: 2 }}>
             <span className="font-display text-lg font-bold leading-none">NG</span>
           </span>
@@ -45,11 +45,12 @@ export function Header() {
           <nav className="hidden xl:flex items-center gap-1">
             {NAV.map((n) => (
               <Link
-                key={n.to}
+                key={n.label}
                 to={n.to}
-                activeOptions={{ exact: n.to === "/" }}
+                hash={n.hash}
+                activeOptions={{ exact: true, includeHash: true }}
                 activeProps={{ className: "text-orange" }}
-                className="px-3 py-2 text-sm font-medium text-navy transition-colors hover:text-orange"
+                className="px-3 py-2 text-sm font-medium text-navy transition-colors hover:text-orange cursor-pointer"
               >
                 {n.label}
               </Link>
@@ -68,7 +69,7 @@ export function Header() {
           <button
             onClick={() => setOpen((v) => !v)}
             aria-label="Toggle menu"
-            className="grid h-9 w-9 place-items-center border border-border text-navy xl:hidden"
+            className="grid h-9 w-9 place-items-center border border-border text-navy xl:hidden cursor-pointer"
             style={{ borderRadius: 2 }}
           >
             {open ? <X size={18} /> : <Menu size={18} />}
@@ -81,12 +82,13 @@ export function Header() {
           <div className="mx-auto flex max-w-7xl flex-col px-5 py-2 lg:px-8">
             {NAV.map((n) => (
               <Link
-                key={n.to}
+                key={n.label}
                 to={n.to}
+                hash={n.hash}
                 onClick={() => setOpen(false)}
-                activeOptions={{ exact: n.to === "/" }}
+                activeOptions={{ exact: true, includeHash: true }}
                 activeProps={{ className: "text-orange" }}
-                className="border-b border-border/60 py-3 text-sm font-medium text-navy last:border-b-0"
+                className="border-b border-border/60 py-3 text-sm font-medium text-navy last:border-b-0 cursor-pointer"
               >
                 {n.label}
               </Link>
