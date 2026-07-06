@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, type ElementType, type ReactNode } from "react";
 
 export function Reveal({
   children,
@@ -8,7 +8,7 @@ export function Reveal({
 }: {
   children: ReactNode;
   delay?: number;
-  as?: keyof JSX.IntrinsicElements;
+  as?: ElementType;
   className?: string;
 }) {
   const ref = useRef<HTMLElement | null>(null);
@@ -29,9 +29,9 @@ export function Reveal({
     io.observe(el);
     return () => io.disconnect();
   }, [delay]);
-  const Component = Tag as any;
+  const Component = Tag as ElementType;
   return (
-    <Component ref={ref as any} className={`reveal ${className}`}>
+    <Component ref={ref as never} className={`reveal ${className}`}>
       {children}
     </Component>
   );
