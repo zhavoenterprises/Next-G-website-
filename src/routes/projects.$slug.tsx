@@ -1,48 +1,56 @@
-import { createFileRoute, Link, notFound } from "@tanstack/react-router";
+import { Link, useParams } from "react-router-dom";
+import { useState, useEffect } from "react";
 import { COMPANY, PROJECTS, whatsappLink } from "@/lib/site-data";
 import { PageHeader } from "@/components/site/PageHeader";
 import { Download, ArrowLeft } from "lucide-react";
 
-export const Route = createFileRoute("/projects/$slug")({
-  loader: ({ params }) => {
-    const project = PROJECTS.find((p) => p.slug === params.slug);
-    if (!project) throw notFound();
-    return { project };
-  },
-  head: ({ loaderData }) => {
-    if (!loaderData) {
-      return { meta: [{ title: "Project not found · NG" }, { name: "robots", content: "noindex" }] };
-    }
-    const p = loaderData.project;
-    return {
-      meta: [
-        { title: `${p.name} · ${p.location} — NG Projects` },
-        { name: "description", content: `${p.type} in ${p.location} — status: ${p.status}. Delivered by Next G Engineers Promoters.` },
-        { property: "og:title", content: `${p.name} · NG` },
-        { property: "og:url", content: `/projects/${p.slug}` },
-        { property: "og:type", content: "article" },
-      ],
-      links: [{ rel: "canonical", href: `/projects/${p.slug}` }],
-    };
-  },
-  component: ProjectDetail,
-  notFoundComponent: () => (
-    <div className="grid min-h-[60vh] place-items-center px-4 text-center">
-      <div>
-        <div className="mono-label text-orange">◤ Not found</div>
-        <h1 className="mt-3 font-display text-3xl font-bold text-navy">This project sheet doesn't exist</h1>
-        <Link to="/projects" className="btn-primary mt-6"><ArrowLeft size={16} /> Back to projects</Link>
-      </div>
-    </div>
-  ),
-});
+export default function ProjectDetail() {
+  const { slug } = useParams();
+  const [project, setProject] = useState<any>(null);
+  const [isNotFound, setIsNotFound] = useState(false);
 
-function ProjectDetail() {
-  const { project } = Route.useLoaderData();
-  const msg = `Hi NG, I'd like a brochure/details for ${project.name}, ${project.location}.`;
+  useEffect(() => {
+    const saved = localStorage.getItem("ng_general_projects");
+    let found = null;
+    if (saved) {
+      try {
+        const list = JSON.parse(saved);
+        found = list.find((p: any) => p.slug === slug);
+      } catch (e) {}
+    }
+    if (!found) {
+      found = PROJECTS.find((p) => p.slug === slug);
+    }
+    
+    if (found) {
+      setProject(found);
+    } else {
+      setIsNotFound(true);
+    }
+  }, [slug]);
+
+  if (isNotFound) {
+    return (
+      <div className="grid min-h-[60vh] place-items-center px-4 text-center">
+        <div>
+          <title>Project not found · NG</title>
+          <div className="mono-label text-orange">◤ Not found</div>
+          <h1 className="mt-3 font-display text-3xl font-bold text-navy">This project sheet doesn't exist</h1>
+          <Link to="/projects" className="btn-primary mt-6"><ArrowLeft size={16} /> Back to projects</Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (!project) return <div className="min-h-screen" />;
+
+  const msg = `Hi NG, I'd like to request the brochure for the project: ${project.name} (${project.location}).`;
 
   return (
     <>
+      <title>{`${project.name} · ${project.location} — NG Projects`}</title>
+      <meta name="description" content={`${project.type} in ${project.location} — status: ${project.status}. Delivered by Next G Engineers Promoters.`} />
+
       <PageHeader
         eyebrow={`${project.type} · ${project.location}`}
         title={project.name}

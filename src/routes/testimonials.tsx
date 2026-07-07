@@ -1,20 +1,9 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { useState, useEffect } from "react";
 import { PageHeader } from "@/components/site/PageHeader";
 import { Carousel, TestimonialCard, type iTestimonial } from "@/components/ui/retro-testimonial";
 import { ShimmerText } from "@/components/ui/shimmer-text";
 
-export const Route = createFileRoute("/testimonials")({
-  head: () => ({
-    meta: [
-      { title: "Testimonials · Words from NG Clients" },
-      { name: "description", content: "Client stories from residential and commercial projects delivered by Next G Engineers Promoters." },
-      { property: "og:title", content: "NG Testimonials" },
-      { property: "og:url", content: "/testimonials" },
-    ],
-    links: [{ rel: "canonical", href: "/testimonials" }],
-  }),
-  component: TestimonialsPage,
-});
+
 
 const testimonialList: (iTestimonial & { id: string; bgImage: string })[] = [
   {
@@ -67,10 +56,25 @@ const testimonialList: (iTestimonial & { id: string; bgImage: string })[] = [
   },
 ];
 
-function TestimonialsPage() {
-  const cards = testimonialList.map((t, index) => (
+export default function TestimonialsPage() {
+  const [testimonials, setTestimonials] = useState<(iTestimonial & { id: string; bgImage: string })[]>(testimonialList);
+
+  useEffect(() => {
+    const saved = localStorage.getItem("ng_testimonials");
+    if (saved) {
+      try {
+        setTestimonials(JSON.parse(saved));
+      } catch (e) {
+        setTestimonials(testimonialList);
+      }
+    } else {
+      localStorage.setItem("ng_testimonials", JSON.stringify(testimonialList));
+    }
+  }, []);
+
+  const cards = testimonials.map((t, index) => (
     <TestimonialCard
-      key={t.id}
+      key={t.id || `t_${index}`}
       testimonial={t}
       index={index}
       backgroundImage={t.bgImage}

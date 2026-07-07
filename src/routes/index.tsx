@@ -1,29 +1,55 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { Link } from "react-router-dom";
+import { useState, useEffect } from "react";
 import { ArrowRight, ArrowUpRight, ShieldCheck, Ruler, HardHat, Award } from "lucide-react";
-import { COMPANY, PROJECTS, SERVICES, STATS, TESTIMONIALS, whatsappLink } from "@/lib/site-data";
+import { COMPANY, PROJECTS, SERVICES, STATS, whatsappLink } from "@/lib/site-data";
 import { Counter } from "@/components/site/Counter";
 import { Reveal } from "@/components/site/Reveal";
 import { SectionHeading } from "@/components/site/SectionHeading";
 import { HeroVisual } from "@/components/site/HeroVisual";
 
-export const Route = createFileRoute("/")({
-  head: () => ({
-    meta: [
-      { title: "NG · Building Madurai's Future — Next G Engineers Promoters" },
-      { name: "description", content: "Residential, commercial and plotted development in Madurai and Ramanathapuram. 11+ years of trusted engineering execution." },
-      { property: "og:title", content: "NG · Building Madurai's Future" },
-      { property: "og:description", content: "11+ years. 34 projects. 48,800+ sq.ft delivered." },
-      { property: "og:url", content: "/" },
-    ],
-    links: [{ rel: "canonical", href: "/" }],
-  }),
-  component: Home,
-});
+const FALLBACK_TESTIMONIALS = [
+  {
+    name: "Tangalakshmi",
+    designation: "Residential Project, Madurai",
+    description: "Next G built our dream home in Madurai. The structural drawing precision was amazing, and the billing was 100% transparent. Highly recommend!",
+  },
+  {
+    name: "Ameena Beevi",
+    designation: "Residential Project, Ramanathapuram",
+    description: "They handled everything from drawings to final finishes. Outstanding engineering discipline and completed right on schedule.",
+  },
+  {
+    name: "Fazila",
+    designation: "Commercial Project, Keelakarai",
+    description: "Next G completed our retail outlet construction in Keelakarai. Clean execution, no surprises in cost, and excellent site safety.",
+  },
+];
 
-function Home() {
-  const featured = PROJECTS.slice(0, 4);
+export default function Home() {
+  const [projectsList, setProjectsList] = useState<any[]>(PROJECTS);
+  const [testimonialsList, setTestimonialsList] = useState<any[]>(FALLBACK_TESTIMONIALS);
+
+  useEffect(() => {
+    const savedProjects = localStorage.getItem("ng_general_projects");
+    if (savedProjects) {
+      try {
+        setProjectsList(JSON.parse(savedProjects));
+      } catch (e) {}
+    }
+    const savedTestimonials = localStorage.getItem("ng_testimonials");
+    if (savedTestimonials) {
+      try {
+        setTestimonialsList(JSON.parse(savedTestimonials));
+      } catch (e) {}
+    }
+  }, []);
+
+  const featured = projectsList.slice(0, 4);
   return (
     <>
+      <title>NG · Building Madurai's Future — Next G Engineers Promoters</title>
+      <meta name="description" content="Residential, commercial and plotted development in Madurai and Ramanathapuram. 11+ years of trusted engineering execution." />
+      
       {/* HERO */}
       <section className="relative overflow-hidden bg-graphite text-offwhite">
         <div className="pointer-events-none absolute inset-0 bp-grid-dark opacity-70" aria-hidden />
@@ -129,8 +155,7 @@ function Home() {
             {featured.map((p, i) => (
               <Reveal key={p.slug} delay={i * 80}>
                 <Link
-                  to="/projects/$slug"
-                  params={{ slug: p.slug }}
+                  to={`/projects/${p.slug}`}
                   className="tick-frame hover-lift group block h-full border border-border bg-card"
                 >
                   <div className="relative aspect-[4/5] overflow-hidden bg-navy">
@@ -192,14 +217,14 @@ function Home() {
             title={<>Built on trust. <span className="text-orange">Recommended by families.</span></>}
           />
           <div className="mt-12 grid gap-6 md:grid-cols-3">
-            {TESTIMONIALS.map((t, i) => (
+            {testimonialsList.slice(0, 3).map((t, i) => (
               <Reveal key={t.name} delay={i * 80}>
                 <div className="tick-frame hover-lift h-full border border-border bg-card p-6">
                   <div className="font-display text-4xl leading-none text-orange">“</div>
-                  <p className="mt-2 text-sm text-muted-foreground">{t.quote}</p>
+                  <p className="mt-2 text-sm text-muted-foreground">{t.description || t.quote}</p>
                   <div className="mt-6 border-t border-border pt-4">
                     <div className="font-semibold text-navy">{t.name}</div>
-                    <div className="mono-label text-muted-foreground">{t.project}</div>
+                    <div className="mono-label text-muted-foreground">{t.designation || t.project}</div>
                   </div>
                 </div>
               </Reveal>

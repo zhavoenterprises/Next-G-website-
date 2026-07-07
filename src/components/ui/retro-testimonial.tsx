@@ -311,10 +311,18 @@ const TestimonialCard = ({
 
 const ProfileImage = ({ src, alt, className, ...rest }: React.ImgHTMLAttributes<HTMLImageElement>) => {
 	const [isLoading, setLoading] = useState(true);
+	const imgRef = useRef<HTMLImageElement>(null);
+
+	useEffect(() => {
+		if (imgRef.current && imgRef.current.complete) {
+			setLoading(false);
+		}
+	}, [src]);
 
 	return (
 		<div className="w-[90px] h-[90px] md:w-[150px] md:h-[150px] opacity-80 overflow-hidden rounded-full border-[3px] border-solid border-[#4b3f33]/40 aspect-[1/1] flex-none saturate-[0.2] sepia-[0.46] relative">
 			<img
+				ref={imgRef}
 				className={cn(
 					"transition duration-300 absolute top-0 inset-0 rounded-full object-cover z-50 w-full h-full",
 					isLoading ? "blur-sm" : "blur-0",

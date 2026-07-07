@@ -1,32 +1,34 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { Link } from "react-router-dom";
+import { useState, useEffect } from "react";
 import { PROJECTS } from "@/lib/site-data";
 import { PageHeader } from "@/components/site/PageHeader";
 import { Reveal } from "@/components/site/Reveal";
 import { ArrowUpRight } from "lucide-react";
-
-export const Route = createFileRoute("/projects")({
-  head: () => ({
-    meta: [
-      { title: "Projects · NG · Residential & Commercial Builds Across Madurai" },
-      { name: "description", content: "Selected residential, commercial and plotted development projects delivered by NG across Madurai and Ramanathapuram." },
-      { property: "og:title", content: "NG Projects Portfolio" },
-      { property: "og:description", content: "Al Ameen Nagar, Thirunagar, Bharathi Nagar, Keelakarai, Vaigai Nagar and more." },
-      { property: "og:url", content: "/projects" },
-    ],
-    links: [{ rel: "canonical", href: "/projects" }],
-  }),
-  component: ProjectsPage,
-});
-
 const FILTERS = ["All", "Completed", "Ongoing", "Upcoming"] as const;
 
-function ProjectsPage() {
+export default function ProjectsPage() {
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("All");
-  const list = filter === "All" ? PROJECTS : PROJECTS.filter((p) => p.status === filter);
+  const [projectsList, setProjectsList] = useState<any[]>(PROJECTS);
+
+  useEffect(() => {
+    const saved = localStorage.getItem("ng_general_projects");
+    if (saved) {
+      try {
+        setProjectsList(JSON.parse(saved));
+      } catch (e) {
+        setProjectsList(PROJECTS);
+      }
+    } else {
+      localStorage.setItem("ng_general_projects", JSON.stringify(PROJECTS));
+    }
+  }, []);
+
+  const list = filter === "All" ? projectsList : projectsList.filter((p) => p.status === filter);
 
   return (
     <>
+      <title>Projects · NG · Residential & Commercial Builds Across Madurai</title>
+      <meta name="description" content="Selected residential, commercial and plotted development projects delivered by NG across Madurai and Ramanathapuram." />
       <PageHeader
         eyebrow="Projects · Portfolio"
         title={<>Selected work across <span className="text-orange">Madurai, Ramanathapuram & beyond.</span></>}
@@ -59,8 +61,7 @@ function ProjectsPage() {
             {list.map((p, i) => (
               <Reveal key={`${filter}-${p.slug}`} delay={i * 60}>
                 <Link
-                  to="/projects/$slug"
-                  params={{ slug: p.slug }}
+                  to={`/projects/${p.slug}`}
                   className="tick-frame hover-lift group block h-full border border-border bg-card"
                 >
                   <div className="relative aspect-[4/3] overflow-hidden bg-navy">
