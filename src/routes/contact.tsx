@@ -1,23 +1,9 @@
-import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { COMPANY, whatsappLink } from "@/lib/site-data";
 import { PageHeader } from "@/components/site/PageHeader";
 import { Phone, Mail, MapPin, Clock, Send, MessageCircle } from "lucide-react";
 
-export const Route = createFileRoute("/contact")({
-  head: () => ({
-    meta: [
-      { title: "Contact NG · Madurai & Ramanathapuram Construction Firm" },
-      { name: "description", content: `Reach Next G Engineers Promoters — call ${COMPANY.phone}, email ${COMPANY.email}, or visit our office in Ramanathapuram.` },
-      { property: "og:title", content: "Contact NG" },
-      { property: "og:url", content: "/contact" },
-    ],
-    links: [{ rel: "canonical", href: "/contact" }],
-  }),
-  component: ContactPage,
-});
-
-function ContactPage() {
+export default function ContactPage() {
   const [form, setForm] = useState({ name: "", phone: "", email: "", message: "" });
   const [sent, setSent] = useState(false);
 
@@ -30,6 +16,9 @@ function ContactPage() {
 
   return (
     <>
+      <title>Contact NG · Madurai & Ramanathapuram Construction Firm</title>
+      <meta name="description" content={`Reach Next G Engineers Promoters — call ${COMPANY.phone}, email ${COMPANY.email}, or visit our office in Ramanathapuram.`} />
+
       <PageHeader
         eyebrow="Contact"
         title={<>Let's build <span className="text-orange">something lasting.</span></>}

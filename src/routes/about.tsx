@@ -1,27 +1,15 @@
-import { createFileRoute } from "@tanstack/react-router";
 import { COMPANY, TEAM, VALUES } from "@/lib/site-data";
 import { PageHeader } from "@/components/site/PageHeader";
 import { SectionHeading } from "@/components/site/SectionHeading";
 import { Reveal } from "@/components/site/Reveal";
 import { User } from "lucide-react";
 
-export const Route = createFileRoute("/about")({
-  head: () => ({
-    meta: [
-      { title: "About NG — 11+ Years of Trusted Engineering in Madurai" },
-      { name: "description", content: "Founded 2020, led by Megathaf Halima S. Learn about the vision, mission and team behind Next G Engineers Promoters Pvt Ltd." },
-      { property: "og:title", content: "About Next G Engineers Promoters" },
-      { property: "og:description", content: "Madurai's most trusted name in construction — precision, integrity and lasting value." },
-      { property: "og:url", content: "/about" },
-    ],
-    links: [{ rel: "canonical", href: "/about" }],
-  }),
-  component: AboutPage,
-});
-
-function AboutPage() {
+export default function AboutPage() {
   return (
     <>
+      <title>About NG — 11+ Years of Trusted Engineering in Madurai</title>
+      <meta name="description" content="Founded 2020, led by Megathaf Halima S. Learn about the vision, mission and team behind Next G Engineers Promoters Pvt Ltd." />
+
       <PageHeader
         eyebrow={`About · Est. ${COMPANY.established}`}
         title={<>Precision engineering, built <span className="text-orange">on relationships.</span></>}

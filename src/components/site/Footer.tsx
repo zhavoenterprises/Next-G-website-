@@ -1,4 +1,4 @@
-import { Link } from "@tanstack/react-router";
+import { Link } from "react-router-dom";
 import { COMPANY } from "@/lib/site-data";
 import { Instagram, Facebook, Youtube, Mail, Phone, MapPin } from "lucide-react";
 

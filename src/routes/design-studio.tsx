@@ -8,20 +8,6 @@ import {
   ArrowRight, Sliders, MapPin, Maximize2, MessageCircle, Layout, Layers, HardHat, FileText 
 } from "lucide-react";
 
-export const Route = createFileRoute("/design-studio")({
-  head: () => ({
-    meta: [
-      { title: "Design Studio · Bring Your Plot to a Finished Design — NG" },
-      { name: "description", content: "Browse available land plots and commission a custom architectural design at a fixed cost. WhatsApp our engineers to start." },
-      { property: "og:title", content: "NG Design Studio" },
-      { property: "og:description", content: "Plot-to-plan design service — fixed fee, direct-to-engineer." },
-      { property: "og:url", content: "/design-studio" },
-    ],
-    links: [{ rel: "canonical", href: "/design-studio" }],
-  }),
-  component: DesignStudio,
-});
-
 interface Project {
   id: string;
   category: "2D" | "3D" | "Structure" | "BOQ";
@@ -90,7 +76,7 @@ function formatINR(n: number) {
   return `₹${Math.round(n).toLocaleString("en-IN")}`;
 }
 
-function DesignStudio() {
+export default function DesignStudio() {
   // Custom plot states
   const [length, setLength] = useState(40);
   const [breadth, setBreadth] = useState(30);

@@ -1,26 +1,14 @@
-import { createFileRoute } from "@tanstack/react-router";
 import { DESIGN_SERVICES, SERVICES } from "@/lib/site-data";
 import { PageHeader } from "@/components/site/PageHeader";
 import { Reveal } from "@/components/site/Reveal";
 import { SectionHeading } from "@/components/site/SectionHeading";
 import { Check } from "lucide-react";
 
-export const Route = createFileRoute("/services")({
-  head: () => ({
-    meta: [
-      { title: "Services · Construction, Design & Engineering — NG" },
-      { name: "description", content: "Residential, villa, commercial and plotted development. In-house architecture, structural, MEP, land survey and BOQ on every approved project." },
-      { property: "og:title", content: "NG Services" },
-      { property: "og:url", content: "/services" },
-    ],
-    links: [{ rel: "canonical", href: "/services" }],
-  }),
-  component: ServicesPage,
-});
-
-function ServicesPage() {
+export default function ServicesPage() {
   return (
     <>
+      <title>Services · Construction, Design & Engineering — NG</title>
+      <meta name="description" content="Residential, villa, commercial and plotted development. In-house architecture, structural, MEP, land survey and BOQ on every approved project." />
       <PageHeader
         eyebrow="Services"
         title={<>What we build. <span className="text-orange">What we deliver.</span></>}
