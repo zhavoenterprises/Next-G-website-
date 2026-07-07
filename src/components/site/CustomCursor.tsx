@@ -6,10 +6,7 @@ export function CustomCursor() {
   const [isVisible, setIsVisible] = useState(false);
 
   const dotRef = useRef<HTMLDivElement>(null);
-  const ringRef = useRef<HTMLDivElement>(null);
-
   const mouseRef = useRef({ x: 0, y: 0 });
-  const trailRef = useRef({ x: 0, y: 0 });
   const frameRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -69,24 +66,11 @@ export function CustomCursor() {
     `;
     document.head.appendChild(styleElement);
 
-    // Smooth loop for cursor trailing (LERP)
+    // Render loop for dot positioning
     const updateCursor = () => {
-      const lerpFactor = 0.15; // Liquid smooth interpolation
-      
-      // Update trail position (outer ring)
-      trailRef.current.x += (mouseRef.current.x - trailRef.current.x) * lerpFactor;
-      trailRef.current.y += (mouseRef.current.y - trailRef.current.y) * lerpFactor;
-
-      // Render dot instantly at mouse coordinates
       if (dotRef.current) {
         dotRef.current.style.transform = `translate3d(${mouseRef.current.x}px, ${mouseRef.current.y}px, 0)`;
       }
-
-      // Render ring with lag at trail coordinates
-      if (ringRef.current) {
-        ringRef.current.style.transform = `translate3d(${trailRef.current.x}px, ${trailRef.current.y}px, 0)`;
-      }
-
       frameRef.current = requestAnimationFrame(updateCursor);
     };
 
@@ -111,33 +95,20 @@ export function CustomCursor() {
 
   return (
     <div className="pointer-events-none fixed inset-0 z-[9999] overflow-hidden">
-      {/* Central precise dot */}
+      {/* Central precise dot cursor */}
       <div
         ref={dotRef}
-        className="fixed top-0 left-0 -ml-1 -mt-1 h-2 w-2 rounded-full bg-orange shadow-[0_0_8px_rgba(232,98,44,0.6)]"
-        style={{ willChange: "transform" }}
-      />
-
-      {/* Premium Outer CAD-style Drafting Crosshair Ring */}
-      <div
-        ref={ringRef}
-        className={`fixed top-0 left-0 -ml-5 -mt-5 rounded-full border transition-all duration-300 ease-out will-change-transform flex items-center justify-center ${
+        className={`fixed top-0 left-0 rounded-full bg-orange transition-all duration-150 ease-out will-change-transform ${
           isHovered
-            ? "h-10 w-10 border-orange bg-orange/10 shadow-[0_0_15px_rgba(232,98,44,0.2)] scale-110"
+            ? "h-4 w-4 -ml-2 -mt-2 bg-orange/80 shadow-[0_0_12px_rgba(232,98,44,0.8)] scale-110"
             : isActive
-            ? "h-10 w-10 border-orange bg-orange/20 scale-90"
-            : "h-10 w-10 border-navy/20 bg-navy/[0.005]"
+            ? "h-2 w-2 -ml-1 -mt-1 bg-orange/90 scale-90"
+            : "h-2.5 w-2.5 -ml-1.25 -mt-1.25 shadow-[0_0_8px_rgba(232,98,44,0.6)]"
         }`}
         style={{
           boxSizing: "border-box",
         }}
-      >
-        {/* Drafting Tick Marks */}
-        <div className={`absolute top-0.5 w-[1.5px] h-1.5 bg-orange/60 transition-transform duration-300 ${isHovered ? "scale-y-150 translate-y-0.5" : ""}`} />
-        <div className={`absolute bottom-0.5 w-[1.5px] h-1.5 bg-orange/60 transition-transform duration-300 ${isHovered ? "scale-y-150 -translate-y-0.5" : ""}`} />
-        <div className={`absolute left-0.5 h-[1.5px] w-1.5 bg-orange/60 transition-transform duration-300 ${isHovered ? "scale-x-150 translate-x-0.5" : ""}`} />
-        <div className={`absolute right-0.5 h-[1.5px] w-1.5 bg-orange/60 transition-transform duration-300 ${isHovered ? "scale-x-150 -translate-x-0.5" : ""}`} />
-      </div>
+      />
     </div>
   );
 }
