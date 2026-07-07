@@ -82,17 +82,33 @@ export default function DesignStudio() {
     try {
       if (activeTab === "BOQ") {
         const res = await fetch("/api/boq");
-        const data = await res.json() as Project[];
-        // Tag category for safety
-        const list = (data ?? []).map(p => ({ ...p, category: "BOQ" as const }));
-        setPortfolioProjects(list);
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          const list = data.map((p: any) => ({ ...p, category: "BOQ" as const }));
+          setPortfolioProjects(list);
+        } else {
+          console.error("API returned non-array for BOQ:", data);
+          setPortfolioProjects([]);
+          if (data && typeof data === "object" && data.error) {
+            setAcceptError(data.error);
+          }
+        }
       } else {
         const res = await fetch(`/api/projects?category=${activeTab}`);
-        const data = await res.json() as Project[];
-        setPortfolioProjects(data ?? []);
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          setPortfolioProjects(data);
+        } else {
+          console.error("API returned non-array for projects:", data);
+          setPortfolioProjects([]);
+          if (data && typeof data === "object" && data.error) {
+            setAcceptError(data.error);
+          }
+        }
       }
     } catch (e) {
       console.error("Failed to fetch drawings list", e);
+      setAcceptError("Failed to fetch drawings. Please check D1 database connection.");
     } finally {
       setIsLoadingList(false);
     }
@@ -352,8 +368,16 @@ export default function DesignStudio() {
               <span className="mono-label text-navy text-xs">Querying project board...</span>
             </div>
           ) : portfolioProjects.length === 0 ? (
-            <div className="text-center py-20 text-muted-foreground text-sm font-mono bg-card border border-border rounded">
-              ◤ All projects in this category are currently assigned. Check back later!
+            <div className="text-center py-20 text-muted-foreground text-sm font-mono bg-card border border-border rounded flex flex-col items-center justify-center p-6">
+              {acceptError ? (
+                <div className="flex flex-col items-center justify-center max-w-md mx-auto p-5 border border-red-200 bg-red-50 text-red-700 rounded gap-2 font-sans">
+                  <AlertCircle className="h-8 w-8 text-red-600 shrink-0" />
+                  <span className="font-bold text-sm">Database Binding Required</span>
+                  <p className="text-xs text-red-600 font-normal leading-relaxed">{acceptError}</p>
+                </div>
+              ) : (
+                <span>◤ All projects in this category are currently assigned. Check back later!</span>
+              )}
             </div>
           ) : (
             <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
