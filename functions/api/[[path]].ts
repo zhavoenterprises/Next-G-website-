@@ -11,43 +11,13 @@ let dbInitialized = false;
 
 async function initializeDatabase(db: any) {
   if (dbInitialized) return;
-  await db.exec(`
-    CREATE TABLE IF NOT EXISTS projects (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      category TEXT CHECK(category IN ('2D','3D','structure')),
-      title TEXT NOT NULL,
-      area TEXT,
-      planning_details TEXT,
-      description TEXT,
-      image_url TEXT,
-      other_info TEXT,
-      status TEXT DEFAULT 'open' CHECK(status IN ('open','assigned','completed','paid')),
-      accepted_by_name TEXT,
-      accepted_by_phone TEXT,
-      accepted_at TEXT,
-      created_at TEXT DEFAULT CURRENT_TIMESTAMP
-    );
+  
+  await db.exec("CREATE TABLE IF NOT EXISTS projects (id INTEGER PRIMARY KEY AUTOINCREMENT, category TEXT CHECK(category IN ('2D','3D','structure')), title TEXT NOT NULL, area TEXT, planning_details TEXT, description TEXT, image_url TEXT, other_info TEXT, status TEXT DEFAULT 'open' CHECK(status IN ('open','assigned','completed','paid')), accepted_by_name TEXT, accepted_by_phone TEXT, accepted_at TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP);");
 
-    CREATE TABLE IF NOT EXISTS boq_projects (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      title TEXT NOT NULL,
-      description TEXT,
-      status TEXT DEFAULT 'open' CHECK(status IN ('open','assigned','completed','paid')),
-      accepted_by_name TEXT,
-      accepted_by_phone TEXT,
-      created_at TEXT DEFAULT CURRENT_TIMESTAMP
-    );
+  await db.exec("CREATE TABLE IF NOT EXISTS boq_projects (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, description TEXT, status TEXT DEFAULT 'open' CHECK(status IN ('open','assigned','completed','paid')), accepted_by_name TEXT, accepted_by_phone TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP);");
 
-    CREATE TABLE IF NOT EXISTS boq_line_items (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      boq_project_id INTEGER REFERENCES boq_projects(id) ON DELETE CASCADE,
-      item_name TEXT,
-      unit TEXT,
-      quantity REAL,
-      rate REAL,
-      amount REAL
-    );
-  `);
+  await db.exec("CREATE TABLE IF NOT EXISTS boq_line_items (id INTEGER PRIMARY KEY AUTOINCREMENT, boq_project_id INTEGER REFERENCES boq_projects(id) ON DELETE CASCADE, item_name TEXT, unit TEXT, quantity REAL, rate REAL, amount REAL);");
+
   dbInitialized = true;
 }
 
