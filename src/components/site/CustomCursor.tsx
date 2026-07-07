@@ -71,7 +71,7 @@ export function CustomCursor() {
 
     // Smooth loop for cursor trailing (LERP)
     const updateCursor = () => {
-      const lerpFactor = 0.12; // Liquid smooth interpolation
+      const lerpFactor = 0.15; // Liquid smooth interpolation
       
       // Update trail position (outer ring)
       trailRef.current.x += (mouseRef.current.x - trailRef.current.x) * lerpFactor;
@@ -118,20 +118,26 @@ export function CustomCursor() {
         style={{ willChange: "transform" }}
       />
 
-      {/* Premium Outer Ring */}
+      {/* Premium Outer CAD-style Drafting Crosshair Ring */}
       <div
         ref={ringRef}
-        className={`fixed top-0 left-0 -ml-5 -mt-5 rounded-full border transition-all duration-300 ease-out will-change-transform ${
+        className={`fixed top-0 left-0 -ml-5 -mt-5 rounded-full border transition-all duration-300 ease-out will-change-transform flex items-center justify-center ${
           isHovered
-            ? "h-10 w-10 border-orange bg-orange/15 shadow-[0_0_15px_rgba(232,98,44,0.2)]"
+            ? "h-10 w-10 border-orange bg-orange/10 shadow-[0_0_15px_rgba(232,98,44,0.2)] scale-110"
             : isActive
-            ? "h-8 w-8 border-orange bg-orange/30"
-            : "h-10 w-10 border-orange/40 bg-orange/[0.03]"
+            ? "h-10 w-10 border-orange bg-orange/20 scale-90"
+            : "h-10 w-10 border-navy/20 bg-navy/[0.005]"
         }`}
         style={{
           boxSizing: "border-box",
         }}
-      />
+      >
+        {/* Drafting Tick Marks */}
+        <div className={`absolute top-0.5 w-[1.5px] h-1.5 bg-orange/60 transition-transform duration-300 ${isHovered ? "scale-y-150 translate-y-0.5" : ""}`} />
+        <div className={`absolute bottom-0.5 w-[1.5px] h-1.5 bg-orange/60 transition-transform duration-300 ${isHovered ? "scale-y-150 -translate-y-0.5" : ""}`} />
+        <div className={`absolute left-0.5 h-[1.5px] w-1.5 bg-orange/60 transition-transform duration-300 ${isHovered ? "scale-x-150 translate-x-0.5" : ""}`} />
+        <div className={`absolute right-0.5 h-[1.5px] w-1.5 bg-orange/60 transition-transform duration-300 ${isHovered ? "scale-x-150 -translate-x-0.5" : ""}`} />
+      </div>
     </div>
   );
 }
