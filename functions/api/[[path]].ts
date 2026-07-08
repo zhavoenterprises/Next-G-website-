@@ -219,6 +219,8 @@ export const onRequest = async (context: {
     } catch (e: any) {
       return apiResponse({ error: e.message }, 500);
     }
+  }
+
   // GET /api/client/projects
   if (url.pathname === "/api/client/projects" && request.method === "GET") {
     const phone = url.searchParams.get("phone");
