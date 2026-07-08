@@ -98,15 +98,16 @@ export function CustomCursor() {
       {/* Central precise dot cursor */}
       <div
         ref={dotRef}
-        className={`fixed top-0 left-0 rounded-full bg-orange transition-[width,height,margin,opacity,background-color,box-shadow] duration-150 ease-out will-change-transform ${
+        className={`fixed top-0 left-0 rounded-full bg-white transition-[width,height,margin,opacity,background-color,box-shadow] duration-150 ease-out will-change-transform ${
           isHovered
-            ? "h-4 w-4 -ml-[8px] -mt-[8px] bg-orange/80 shadow-[0_0_12px_rgba(232,98,44,0.8)]"
+            ? "h-4 w-4 -ml-[8px] -mt-[8px] opacity-90 shadow-[0_0_12px_rgba(255,255,255,0.8)]"
             : isActive
-            ? "h-1.5 w-1.5 -ml-[3px] -mt-[3px] bg-orange/90"
-            : "h-2.5 w-2.5 -ml-[5px] -mt-[5px] shadow-[0_0_8px_rgba(232,98,44,0.6)]"
+            ? "h-1.5 w-1.5 -ml-[3px] -mt-[3px] opacity-100"
+            : "h-2.5 w-2.5 -ml-[5px] -mt-[5px] shadow-[0_0_8px_rgba(255,255,255,0.6)]"
         }`}
         style={{
           boxSizing: "border-box",
+          mixBlendMode: "difference",
         }}
       />
     </div>

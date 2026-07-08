@@ -1,10 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { PLOTS, COMPANY, whatsappLink } from "@/lib/site-data";
 import { PageHeader } from "@/components/site/PageHeader";
 import { Reveal } from "@/components/site/Reveal";
 import { PlotSketch } from "@/components/site/PlotSketch";
 import { 
-  ArrowRight, Sliders, MapPin, Maximize2, MessageCircle, Layout, Layers, HardHat, FileText, Check, AlertCircle, Loader2, Phone, User
+  ArrowRight, Sliders, MapPin, Maximize2, MessageCircle, Layout, Layers, HardHat, FileText, Check, AlertCircle, Loader2, Phone, User,
+  Search, Download, ZoomIn, ZoomOut, RotateCcw, X
 } from "lucide-react";
 
 interface BOQLineItem {
@@ -62,6 +63,180 @@ export default function DesignStudio() {
   const [activeTab, setActiveTab] = useState<"2D" | "3D" | "structure" | "BOQ">("2D");
   const [portfolioProjects, setPortfolioProjects] = useState<Project[]>([]);
   const [isLoadingList, setIsLoadingList] = useState(false);
+
+  // Search & Filter States
+  const [searchQuery, setSearchQuery] = useState("");
+  const [areaFilter, setAreaFilter] = useState<"all" | "small" | "medium" | "large">("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "open" | "assigned">("all");
+
+  // Lightbox States
+  const [selectedLightboxProject, setSelectedLightboxProject] = useState<Project | null>(null);
+  const [zoomScale, setZoomScale] = useState(1);
+
+  // Filtered Projects computation
+  const filteredProjects = useMemo(() => {
+    return portfolioProjects.filter((proj) => {
+      // 1. Search Query Filter
+      if (searchQuery.trim() !== "") {
+        const query = searchQuery.toLowerCase();
+        const matchesTitle = proj.title?.toLowerCase().includes(query);
+        const matchesDesc = proj.description?.toLowerCase().includes(query);
+        const matchesArea = proj.area?.toLowerCase().includes(query);
+        const matchesPlanning = proj.planning_details?.toLowerCase().includes(query);
+        if (!matchesTitle && !matchesDesc && !matchesArea && !matchesPlanning) {
+          return false;
+        }
+      }
+
+      // 2. Area Filter (Small < 1000, Medium 1000-2000, Large > 2000)
+      if (areaFilter !== "all" && proj.category !== "BOQ") {
+        const areaStr = proj.area || "";
+        const matchNum = areaStr.match(/\d+/g);
+        if (matchNum) {
+          let value = parseInt(matchNum[0], 10);
+          if (areaStr.toLowerCase().includes("meter") || areaStr.toLowerCase().includes("sqm") || areaStr.toLowerCase().includes("sq.m")) {
+            value = Math.round(value * 10.76); // convert sq.m to sq.ft
+          }
+          if (areaFilter === "small" && value >= 1000) return false;
+          if (areaFilter === "medium" && (value < 1000 || value > 2000)) return false;
+          if (areaFilter === "large" && value <= 2000) return false;
+        }
+      }
+
+      // 3. Status Filter
+      if (statusFilter !== "all") {
+        if (statusFilter === "open" && proj.status !== "open") return false;
+        if (statusFilter === "assigned" && proj.status === "open") return false;
+      }
+
+      return true;
+    });
+  }, [portfolioProjects, searchQuery, areaFilter, statusFilter]);
+
+  // PDF print handler
+  const printBOQEstimate = (proj: Project) => {
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      alert("Please allow popups to download/print the estimate.");
+      return;
+    }
+
+    const items = proj.line_items ?? [];
+    const total = items.reduce((sum, item) => sum + ((item.quantity ?? 0) * (item.rate ?? 0)), 0);
+
+    const rowsHtml = items.map((item, idx) => `
+      <tr>
+        <td style="padding: 10px; border-bottom: 1px solid #ddd; text-align: center;">${idx + 1}</td>
+        <td style="padding: 10px; border-bottom: 1px solid #ddd;">${item.item_name}</td>
+        <td style="padding: 10px; border-bottom: 1px solid #ddd; text-align: center;">${item.unit}</td>
+        <td style="padding: 10px; border-bottom: 1px solid #ddd; text-align: right;">${item.quantity.toLocaleString("en-IN")}</td>
+        <td style="padding: 10px; border-bottom: 1px solid #ddd; text-align: right;">₹${item.rate.toLocaleString("en-IN")}</td>
+        <td style="padding: 10px; border-bottom: 1px solid #ddd; text-align: right; font-weight: bold;">₹${(item.quantity * item.rate).toLocaleString("en-IN")}</td>
+      </tr>
+    `).join("");
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>BOQ Estimate - ${proj.title}</title>
+          <style>
+            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #333; margin: 40px; line-height: 1.5; }
+            .header { border-bottom: 3px solid #E8622C; padding-bottom: 20px; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: flex-end; }
+            .logo-area { display: flex; align-items: center; gap: 15px; }
+            .logo-square { background: #1B254B; color: #fff; width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 20px; border-radius: 4px; }
+            .company-name { font-size: 20px; font-weight: 700; color: #1B254B; margin: 0; }
+            .company-sub { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #E8622C; margin: 0; }
+            .meta-area { text-align: right; font-size: 13px; color: #666; }
+            .meta-title { font-size: 24px; font-weight: 700; color: #1B254B; margin: 0 0 5px 0; }
+            .project-details { background: #f9f9f9; border: 1px solid #eee; padding: 20px; border-radius: 6px; margin-bottom: 30px; }
+            .project-title { font-size: 18px; font-weight: bold; color: #1B254B; margin: 0 0 10px 0; }
+            .project-desc { font-size: 13px; color: #555; margin: 0; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 30px; font-size: 13px; }
+            th { background: #1B254B; color: #fff; padding: 12px 10px; font-weight: 600; text-align: left; }
+            .total-row { font-size: 15px; background: #fff; }
+            .total-label { font-weight: 700; color: #1B254B; font-size: 16px; border-top: 2px solid #1B254B; }
+            .total-value { font-weight: 700; color: #E8622C; font-size: 18px; border-top: 2px solid #1B254B; text-align: right; }
+            .footer { border-top: 1px solid #eee; padding-top: 20px; margin-top: 50px; text-align: center; font-size: 11px; color: #888; }
+            @media print {
+              body { margin: 20px; }
+              button { display: none; }
+            }
+          </style>
+        </head>
+        <body>
+          <div style="text-align: right; margin-bottom: 20px;">
+            <button onclick="window.print();" style="background: #E8622C; color: #fff; border: none; padding: 10px 20px; font-size: 14px; font-weight: bold; border-radius: 4px; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">Print / Save PDF</button>
+          </div>
+          
+          <div class="header">
+            <div class="logo-area">
+              <div class="logo-square">NG</div>
+              <div>
+                <h1 class="company-name">${COMPANY.name}</h1>
+                <p class="company-sub">Engineering & Construction Promoters</p>
+              </div>
+            </div>
+            <div class="meta-area">
+              <h2 class="meta-title">ESTIMATE SHEET</h2>
+              <div>Date: ${new Date().toLocaleDateString("en-IN")}</div>
+              <div>Ref: NG/EST/${proj.id}/${new Date().getFullYear()}</div>
+            </div>
+          </div>
+
+          <div class="project-details">
+            <h3 class="project-title">${proj.title}</h3>
+            <p class="project-desc">${proj.description || "No description provided."}</p>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 60px; text-align: center;">S.No</th>
+                <th>Item Specification</th>
+                <th style="width: 80px; text-align: center;">Unit</th>
+                <th style="width: 100px; text-align: right;">Quantity</th>
+                <th style="width: 100px; text-align: right;">Rate</th>
+                <th style="width: 120px; text-align: right;">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+              <tr class="total-row">
+                <td colspan="4" style="border: none;"></td>
+                <td class="total-label" style="padding: 15px 10px;">GRAND TOTAL</td>
+                <td class="total-value" style="padding: 15px 10px;">₹${total.toLocaleString("en-IN")}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div style="margin-top: 40px; display: flex; justify-content: space-between; font-size: 13px;">
+            <div>
+              <p style="font-weight: bold; color: #1B254B; margin-bottom: 50px;">Prepared By:</p>
+              <p style="border-top: 1px solid #333; width: 180px; padding-top: 5px; text-align: center;">Next G Engineering Team</p>
+            </div>
+            <div style="text-align: right;">
+              <p style="font-weight: bold; color: #1B254B; margin-bottom: 50px;">Approved By:</p>
+              <p style="border-top: 1px solid #333; width: 180px; padding-top: 5px; text-align: center; display: inline-block;">Authorized Signatory</p>
+            </div>
+          </div>
+
+          <div class="footer">
+            <p>${COMPANY.address} | Phone: +91 ${COMPANY.phone} | Email: ${COMPANY.email}</p>
+            <p>This is a computer-generated estimate sheet. Valid for 30 days from date of generation.</p>
+          </div>
+          
+          <script>
+            window.onload = function() {
+              setTimeout(function() {
+                window.print();
+              }, 300);
+            }
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
 
   // Acceptance Form States
   const [acceptingProjectId, setAcceptingProjectId] = useState<number | null>(null);
@@ -347,6 +522,9 @@ export default function DesignStudio() {
                   onClick={() => {
                     cancelAcceptance();
                     setActiveTab(t.id as any);
+                    setSearchQuery("");
+                    setAreaFilter("all");
+                    setStatusFilter("all");
                   }}
                   className={`flex-1 flex justify-center items-center gap-2 py-3 text-xs md:text-sm font-mono border cursor-pointer transition-all ${
                     activeTab === t.id
@@ -360,6 +538,50 @@ export default function DesignStudio() {
                 </button>
               );
             })}
+          </div>
+
+          {/* SEARCH & FILTERS PANEL */}
+          <div className="grid gap-4 md:grid-cols-3 bg-card border border-border p-4 rounded mb-8">
+            {/* Search Input */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
+              <input
+                type="text"
+                placeholder="Search by title, area, or keyword..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full border border-border bg-offwhite pl-9 pr-4 py-2 text-sm text-navy outline-none transition-colors focus:border-orange rounded"
+              />
+            </div>
+
+            {/* Area Size Filter (only show if not BOQ tab) */}
+            {activeTab !== "BOQ" ? (
+              <select
+                value={areaFilter}
+                onChange={(e) => setAreaFilter(e.target.value as any)}
+                className="border border-border bg-offwhite px-3 py-2 text-sm text-navy outline-none transition-colors focus:border-orange rounded cursor-pointer"
+              >
+                <option value="all">All Area Sizes</option>
+                <option value="small">Small (&lt; 1,000 Sq.Ft)</option>
+                <option value="medium">Medium (1,000 - 2,000 Sq.Ft)</option>
+                <option value="large">Large (&gt; 2,000 Sq.Ft)</option>
+              </select>
+            ) : (
+              <div className="text-xs text-muted-foreground/60 flex items-center px-3 border border-dashed border-border bg-offwhite/50 rounded font-mono">
+                ◤ Area filter disabled for BOQ
+              </div>
+            )}
+
+            {/* Status Filter */}
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as any)}
+              className="border border-border bg-offwhite px-3 py-2 text-sm text-navy outline-none transition-colors focus:border-orange rounded cursor-pointer"
+            >
+              <option value="all">All Statuses (Available & Taken)</option>
+              <option value="open">Available Only</option>
+              <option value="assigned">Assigned / In Progress</option>
+            </select>
           </div>
 
           {isLoadingList ? (
@@ -379,9 +601,20 @@ export default function DesignStudio() {
                 <span>◤ All projects in this category are currently assigned. Check back later!</span>
               )}
             </div>
+          ) : filteredProjects.length === 0 ? (
+            <div className="text-center py-20 text-muted-foreground text-sm font-mono bg-card border border-border rounded flex flex-col items-center justify-center p-6">
+              <AlertCircle className="h-8 w-8 text-orange mb-2" />
+              <span>◤ No drawings match your search query or filters.</span>
+              <button 
+                onClick={() => { setSearchQuery(""); setAreaFilter("all"); setStatusFilter("all"); }}
+                className="mt-4 text-xs text-orange border border-orange px-3 py-1.5 hover:bg-orange hover:text-white transition-colors rounded cursor-pointer"
+              >
+                Clear Filters
+              </button>
+            </div>
           ) : (
             <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
-              {portfolioProjects.map((proj, i) => {
+              {filteredProjects.map((proj, i) => {
                 const isAccepting = acceptingProjectId === proj.id;
                 const isAcceptedSuccess = acceptedProject?.id === proj.id;
 
@@ -389,15 +622,25 @@ export default function DesignStudio() {
 
                 return (
                   <Reveal key={proj.id} delay={i * 80}>
-                    <div className="tick-frame hover-lift flex h-full flex-col border border-border bg-card">
+                    <div id={`project-card-${proj.id}`} className="tick-frame hover-lift flex h-full flex-col border border-border bg-card">
                       {proj.image_url && (
-                        <div className="aspect-[16/10] overflow-hidden bg-navy border-b border-border relative">
+                        <button
+                          onClick={() => {
+                            setSelectedLightboxProject(proj);
+                            setZoomScale(1);
+                          }}
+                          className="aspect-[16/10] overflow-hidden bg-navy border-b border-border relative group w-full text-left cursor-zoom-in block outline-none"
+                        >
                           <img
                             src={proj.image_url}
                             alt={proj.title}
-                            className="w-full h-full object-cover"
+                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                           />
-                        </div>
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5 text-white text-xs font-mono">
+                            <Maximize2 size={14} />
+                            <span>View Fullscreen</span>
+                          </div>
+                        </button>
                       )}
                       
                       <div className="flex flex-1 flex-col p-6 justify-between">
@@ -434,6 +677,15 @@ export default function DesignStudio() {
                               <div className="flex justify-between items-center font-mono text-xs mt-3 pt-2 border-t border-dashed border-border text-navy font-bold">
                                 <span>TOTAL ESTIMATE</span>
                                 <span className="text-orange">{calculateBOQTotal(proj.line_items).toLocaleString("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 })}</span>
+                              </div>
+                              <div className="mt-3 flex justify-end">
+                                <button
+                                  onClick={() => printBOQEstimate(proj)}
+                                  className="flex items-center gap-1.5 px-2.5 py-1.5 border border-orange/40 text-orange hover:bg-orange hover:text-white transition-colors text-[10px] font-mono rounded cursor-pointer outline-none"
+                                >
+                                  <Download size={10} />
+                                  <span>Export Estimate PDF</span>
+                                </button>
                               </div>
                             </div>
                           )}
@@ -606,6 +858,118 @@ export default function DesignStudio() {
           </div>
         </div>
       </section>
+
+      {/* FULLSCREEN IMAGE LIGHTBOX MODAL */}
+      {selectedLightboxProject && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 backdrop-blur-sm p-4 md:p-8">
+          <div className="absolute inset-0 cursor-zoom-out" onClick={() => setSelectedLightboxProject(null)} />
+          
+          <div className="relative z-10 w-full max-w-6xl bg-navy/90 border border-white/10 rounded overflow-hidden flex flex-col md:grid md:grid-cols-[1fr_350px] md:h-[80vh] shadow-2xl">
+            {/* Image Viewer Pane */}
+            <div className="relative bg-black flex items-center justify-center p-4 border-b md:border-b-0 md:border-r border-white/10 overflow-hidden min-h-[300px] flex-1">
+              <img
+                src={selectedLightboxProject.image_url}
+                alt={selectedLightboxProject.title}
+                className="max-h-full max-w-full object-contain transition-transform duration-200"
+                style={{ transform: `scale(${zoomScale})` }}
+              />
+              
+              {/* Zoom Controls */}
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-navy/80 border border-white/10 px-3 py-1.5 rounded-full backdrop-blur-md">
+                <button
+                  onClick={() => setZoomScale(s => Math.max(0.5, s - 0.25))}
+                  className="p-1 hover:text-orange text-offwhite transition-colors cursor-pointer"
+                  title="Zoom Out"
+                >
+                  <ZoomOut size={16} />
+                </button>
+                <span className="text-xs font-mono min-w-12 text-center text-offwhite/85">{Math.round(zoomScale * 100)}%</span>
+                <button
+                  onClick={() => setZoomScale(s => Math.min(3, s + 0.25))}
+                  className="p-1 hover:text-orange text-offwhite transition-colors cursor-pointer"
+                  title="Zoom In"
+                >
+                  <ZoomIn size={16} />
+                </button>
+                <button
+                  onClick={() => setZoomScale(1)}
+                  className="p-1 hover:text-orange text-offwhite/60 transition-colors border-l border-white/15 pl-2 ml-1 cursor-pointer"
+                  title="Reset Zoom"
+                >
+                  <RotateCcw size={14} />
+                </button>
+              </div>
+            </div>
+
+            {/* Sidebar Details Panel */}
+            <div className="p-6 md:p-8 flex flex-col justify-between overflow-y-auto bg-navy text-offwhite">
+              <div>
+                <div className="flex justify-between items-start gap-4">
+                  <span className="mono-label text-orange text-xs">◤ {selectedLightboxProject.category} Drawing Sheet</span>
+                  <button
+                    onClick={() => setSelectedLightboxProject(null)}
+                    className="text-offwhite/60 hover:text-white transition-colors p-1 border border-white/10 rounded cursor-pointer"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+                
+                <h3 className="mt-4 font-display text-xl md:text-2xl font-bold leading-tight">{selectedLightboxProject.title}</h3>
+                
+                <dl className="mt-6 grid grid-cols-2 gap-4 border-y border-white/10 py-4 my-6 font-sans">
+                  <div>
+                    <dt className="mono-label text-offwhite/50 text-[10px]">Area</dt>
+                    <dd className="font-mono text-sm font-semibold mt-0.5">{selectedLightboxProject.area || "—"}</dd>
+                  </div>
+                  <div>
+                    <dt className="mono-label text-offwhite/50 text-[10px]">Planning Details</dt>
+                    <dd className="text-xs font-semibold mt-0.5 leading-snug">{selectedLightboxProject.planning_details || "—"}</dd>
+                  </div>
+                </dl>
+
+                <div>
+                  <h4 className="mono-label text-offwhite/50 text-[10px] uppercase">Drawing Description</h4>
+                  <p className="text-xs text-offwhite/80 leading-relaxed mt-2 font-sans">{selectedLightboxProject.description}</p>
+                </div>
+
+                {selectedLightboxProject.other_info && (
+                  <div className="mt-6 p-3 bg-orange/10 border border-orange/20 rounded text-xs text-orange font-mono">
+                    * Note: {selectedLightboxProject.other_info}
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-8 pt-6 border-t border-white/10 flex flex-col gap-3 font-sans">
+                <div className="flex justify-between items-center text-xs text-offwhite/60">
+                  <span>Drawing Status:</span>
+                  <span className={`px-2 py-0.5 border rounded-sm text-[9px] font-bold uppercase ${
+                    selectedLightboxProject.status === "open"
+                      ? "border-green-500 text-green-400 bg-green-500/10"
+                      : "border-amber-500 text-amber-400 bg-amber-500/10"
+                  }`}>{selectedLightboxProject.status}</span>
+                </div>
+                
+                <button
+                  onClick={() => {
+                    setSelectedLightboxProject(null);
+                    const cardElement = document.getElementById(`project-card-${selectedLightboxProject.id}`);
+                    if (cardElement) {
+                      cardElement.scrollIntoView({ behavior: "smooth", block: "center" });
+                      setTimeout(() => {
+                        const acceptBtn = cardElement.querySelector(".btn-accept-trigger") as HTMLButtonElement;
+                        if (acceptBtn) acceptBtn.click();
+                      }, 400);
+                    }
+                  }}
+                  className="btn-primary w-full justify-center"
+                >
+                  Configure / Accept drawing
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

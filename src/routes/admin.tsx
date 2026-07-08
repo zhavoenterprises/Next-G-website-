@@ -1,7 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { 
-  Plus, Edit2, Trash2, LogOut, Lock, User, AlertCircle, FileText, Layout, Layers, HardHat, Upload, HelpCircle, Check, Loader2, ArrowRight
+  Plus, Edit2, Trash2, LogOut, Lock, User, AlertCircle, FileText, Layout, Layers, HardHat, Upload, HelpCircle, Check, Loader2, ArrowRight,
+  BarChart3, PieChart, TrendingUp, Sparkles, Download
 } from "lucide-react";
+import { COMPANY } from "@/lib/site-data";
 
 interface BOQLineItem {
   id?: number;
@@ -43,6 +45,164 @@ export default function AdminPortal() {
   const [activeTab, setActiveTab] = useState<"2D" | "3D" | "structure" | "BOQ">("2D");
   const [projects, setProjects] = useState<Project[]>([]);
   const [isEditing, setIsEditing] = useState(false);
+
+  // Analytics Metrics Calculation
+  const metrics = useMemo(() => {
+    let totalBOQEstimate = 0;
+    let openCount = 0;
+    let assignedCount = 0;
+    let completedCount = 0;
+    
+    projects.forEach((p) => {
+      if (p.status === "open") openCount++;
+      else if (p.status === "assigned") assignedCount++;
+      else if (p.status === "completed" || p.status === "paid") completedCount++;
+
+      if (p.category === "BOQ") {
+        const items = p.line_items ?? [];
+        const boqTotal = items.reduce((sum, item) => sum + ((item.quantity ?? 0) * (item.rate ?? 0)), 0);
+        totalBOQEstimate += boqTotal;
+      }
+    });
+
+    const totalProjects = projects.length;
+    const completionRate = totalProjects > 0 ? Math.round((completedCount / totalProjects) * 100) : 0;
+
+    return {
+      totalBOQEstimate,
+      openCount,
+      assignedCount,
+      completedCount,
+      totalProjects,
+      completionRate
+    };
+  }, [projects]);
+
+  // PDF print handler
+  const printBOQEstimate = (proj: Project) => {
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      alert("Please allow popups to download/print the estimate.");
+      return;
+    }
+
+    const items = proj.line_items ?? [];
+    const total = items.reduce((sum, item) => sum + ((item.quantity ?? 0) * (item.rate ?? 0)), 0);
+
+    const rowsHtml = items.map((item, idx) => `
+      <tr>
+        <td style="padding: 10px; border-bottom: 1px solid #ddd; text-align: center;">${idx + 1}</td>
+        <td style="padding: 10px; border-bottom: 1px solid #ddd;">${item.item_name}</td>
+        <td style="padding: 10px; border-bottom: 1px solid #ddd; text-align: center;">${item.unit}</td>
+        <td style="padding: 10px; border-bottom: 1px solid #ddd; text-align: right;">${item.quantity.toLocaleString("en-IN")}</td>
+        <td style="padding: 10px; border-bottom: 1px solid #ddd; text-align: right;">₹${item.rate.toLocaleString("en-IN")}</td>
+        <td style="padding: 10px; border-bottom: 1px solid #ddd; text-align: right; font-weight: bold;">₹${(item.quantity * item.rate).toLocaleString("en-IN")}</td>
+      </tr>
+    `).join("");
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>BOQ Estimate - ${proj.title}</title>
+          <style>
+            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #333; margin: 40px; line-height: 1.5; }
+            .header { border-bottom: 3px solid #E8622C; padding-bottom: 20px; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: flex-end; }
+            .logo-area { display: flex; align-items: center; gap: 15px; }
+            .logo-square { background: #1B254B; color: #fff; width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 20px; border-radius: 4px; }
+            .company-name { font-size: 20px; font-weight: 700; color: #1B254B; margin: 0; }
+            .company-sub { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #E8622C; margin: 0; }
+            .meta-area { text-align: right; font-size: 13px; color: #666; }
+            .meta-title { font-size: 24px; font-weight: 700; color: #1B254B; margin: 0 0 5px 0; }
+            .project-details { background: #f9f9f9; border: 1px solid #eee; padding: 20px; border-radius: 6px; margin-bottom: 30px; }
+            .project-title { font-size: 18px; font-weight: bold; color: #1B254B; margin: 0 0 10px 0; }
+            .project-desc { font-size: 13px; color: #555; margin: 0; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 30px; font-size: 13px; }
+            th { background: #1B254B; color: #fff; padding: 12px 10px; font-weight: 600; text-align: left; }
+            .total-row { font-size: 15px; background: #fff; }
+            .total-label { font-weight: 700; color: #1B254B; font-size: 16px; border-top: 2px solid #1B254B; }
+            .total-value { font-weight: 700; color: #E8622C; font-size: 18px; border-top: 2px solid #1B254B; text-align: right; }
+            .footer { border-top: 1px solid #eee; padding-top: 20px; margin-top: 50px; text-align: center; font-size: 11px; color: #888; }
+            @media print {
+              body { margin: 20px; }
+              button { display: none; }
+            }
+          </style>
+        </head>
+        <body>
+          <div style="text-align: right; margin-bottom: 20px;">
+            <button onclick="window.print();" style="background: #E8622C; color: #fff; border: none; padding: 10px 20px; font-size: 14px; font-weight: bold; border-radius: 4px; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">Print / Save PDF</button>
+          </div>
+          
+          <div class="header">
+            <div class="logo-area">
+              <div class="logo-square">NG</div>
+              <div>
+                <h1 class="company-name">${COMPANY.name}</h1>
+                <p class="company-sub">Engineering & Construction Promoters</p>
+              </div>
+            </div>
+            <div class="meta-area">
+              <h2 class="meta-title">ESTIMATE SHEET</h2>
+              <div>Date: ${new Date().toLocaleDateString("en-IN")}</div>
+              <div>Ref: NG/EST/${proj.id}/${new Date().getFullYear()}</div>
+            </div>
+          </div>
+
+          <div class="project-details">
+            <h3 class="project-title">${proj.title}</h3>
+            <p class="project-desc">${proj.description || "No description provided."}</p>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 60px; text-align: center;">S.No</th>
+                <th>Item Specification</th>
+                <th style="width: 80px; text-align: center;">Unit</th>
+                <th style="width: 100px; text-align: right;">Quantity</th>
+                <th style="width: 100px; text-align: right;">Rate</th>
+                <th style="width: 120px; text-align: right;">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+              <tr class="total-row">
+                <td colspan="4" style="border: none;"></td>
+                <td class="total-label" style="padding: 15px 10px;">GRAND TOTAL</td>
+                <td class="total-value" style="padding: 15px 10px;">₹${total.toLocaleString("en-IN")}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div style="margin-top: 40px; display: flex; justify-content: space-between; font-size: 13px;">
+            <div>
+              <p style="font-weight: bold; color: #1B254B; margin-bottom: 50px;">Prepared By:</p>
+              <p style="border-top: 1px solid #333; width: 180px; padding-top: 5px; text-align: center;">Next G Engineering Team</p>
+            </div>
+            <div style="text-align: right;">
+              <p style="font-weight: bold; color: #1B254B; margin-bottom: 50px;">Approved By:</p>
+              <p style="border-top: 1px solid #333; width: 180px; padding-top: 5px; text-align: center; display: inline-block;">Authorized Signatory</p>
+            </div>
+          </div>
+
+          <div class="footer">
+            <p>${COMPANY.address} | Phone: +91 ${COMPANY.phone} | Email: ${COMPANY.email}</p>
+            <p>This is a computer-generated estimate sheet. Valid for 30 days from date of generation.</p>
+          </div>
+          
+          <script>
+            window.onload = function() {
+              setTimeout(function() {
+                window.print();
+              }, 300);
+            }
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
   const [currentProject, setCurrentProject] = useState<Partial<Project>>({});
   const [showFormModal, setShowFormModal] = useState(false);
 
@@ -404,6 +564,82 @@ export default function AdminPortal() {
 
       <div className="bg-offwhite min-h-screen py-10">
         <div className="mx-auto max-w-7xl px-5 lg:px-8">
+          {/* ANALYTICS DASHBOARD STATS */}
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-8">
+            {/* Metric 1: Total BOQ Estimated Value */}
+            <div className="tick-frame border border-border bg-card p-5 hover-lift">
+              <div className="flex justify-between items-start">
+                <div>
+                  <span className="mono-label text-muted-foreground text-[10px]">Est. Pipeline Value</span>
+                  <div className="text-xl font-bold font-mono text-navy mt-1">
+                    {metrics.totalBOQEstimate.toLocaleString("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 })}
+                  </div>
+                </div>
+                <div className="p-2 bg-orange/10 text-orange rounded">
+                  <TrendingUp size={16} />
+                </div>
+              </div>
+              <div className="text-[10px] text-muted-foreground mt-2 font-sans">
+                Sum of all active BOQ specifications
+              </div>
+            </div>
+
+            {/* Metric 2: Completion Rate */}
+            <div className="tick-frame border border-border bg-card p-5 hover-lift">
+              <div className="flex justify-between items-start">
+                <div>
+                  <span className="mono-label text-muted-foreground text-[10px]">Completion Rate</span>
+                  <div className="text-xl font-bold font-mono text-navy mt-1">
+                    {metrics.completionRate}%
+                  </div>
+                </div>
+                <div className="p-2 bg-green-50 text-green-600 border border-green-100 rounded">
+                  <Check size={16} />
+                </div>
+              </div>
+              {/* Progress bar */}
+              <div className="mt-3 w-full bg-border h-1.5 rounded-full overflow-hidden">
+                <div className="bg-green-600 h-full rounded-full transition-all duration-500" style={{ width: `${metrics.completionRate}%` }} />
+              </div>
+            </div>
+
+            {/* Metric 3: Active Pipeline */}
+            <div className="tick-frame border border-border bg-card p-5 hover-lift">
+              <div className="flex justify-between items-start">
+                <div>
+                  <span className="mono-label text-muted-foreground text-[10px]">In Progress</span>
+                  <div className="text-xl font-bold font-mono text-navy mt-1">
+                    {metrics.assignedCount} <span className="text-xs font-sans font-normal text-muted-foreground">projects</span>
+                  </div>
+                </div>
+                <div className="p-2 bg-amber-50 text-amber-600 border border-amber-100 rounded">
+                  <BarChart3 size={16} />
+                </div>
+              </div>
+              <div className="text-[10px] text-muted-foreground mt-2 font-sans">
+                Assigned drawings currently in progress
+              </div>
+            </div>
+
+            {/* Metric 4: Open Drawings */}
+            <div className="tick-frame border border-border bg-card p-5 hover-lift">
+              <div className="flex justify-between items-start">
+                <div>
+                  <span className="mono-label text-muted-foreground text-[10px]">Available / Open</span>
+                  <div className="text-xl font-bold font-mono text-navy mt-1">
+                    {metrics.openCount} <span className="text-xs font-sans font-normal text-muted-foreground">drawings</span>
+                  </div>
+                </div>
+                <div className="p-2 bg-blue-50 text-blue-600 border border-blue-100 rounded">
+                  <Sparkles size={16} />
+                </div>
+              </div>
+              <div className="text-[10px] text-muted-foreground mt-2 font-sans">
+                Waiting for clients to accept on board
+              </div>
+            </div>
+          </div>
+
           {/* Tabs header */}
           <div className="flex border-b border-border bg-card p-2 rounded gap-2 mb-8">
             {[
@@ -524,6 +760,16 @@ export default function AdminPortal() {
                               style={{ borderRadius: 2 }}
                             >
                               Status <ArrowRight size={10} />
+                            </button>
+                          )}
+                          {p.category === "BOQ" && (
+                            <button
+                              onClick={() => printBOQEstimate(p)}
+                              className="inline-flex items-center justify-center h-8 w-8 text-orange hover:text-white hover:bg-orange border border-border hover:border-orange mr-2 cursor-pointer transition-colors"
+                              style={{ borderRadius: 2 }}
+                              title="Print / Save Estimate PDF"
+                            >
+                              <Download size={12} />
                             </button>
                           )}
                           <button
