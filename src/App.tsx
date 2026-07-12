@@ -1,4 +1,5 @@
-import { Routes, Route } from "react-router-dom";
+import { useEffect } from "react";
+import { Routes, Route, useLocation } from "react-router-dom";
 import { Header } from "@/components/site/Header";
 import { Footer } from "@/components/site/Footer";
 import { WhatsAppFloat } from "@/components/site/WhatsAppFloat";
@@ -16,6 +17,16 @@ import Testimonials from "./routes/testimonials";
 import Contact from "./routes/contact";
 import Admin from "./routes/admin";
 
+function ScrollToTop() {
+  const { pathname } = useLocation();
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+
+  return null;
+}
+
 function NotFoundComponent() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-offwhite px-4 text-center">
@@ -32,6 +43,7 @@ function NotFoundComponent() {
 export function App() {
   return (
     <div className="flex min-h-screen flex-col bg-offwhite">
+      <ScrollToTop />
       <Header />
       <main className="flex-1">
         <Routes>
