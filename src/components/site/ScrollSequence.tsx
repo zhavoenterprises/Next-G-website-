@@ -1,13 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 
 export function ScrollSequence() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  
-  const [progress, setProgress] = useState(0);
-  const [isReady, setIsReady] = useState(false);
-
   const totalFrames = 300;
   const coreStep = 5;
   const imagesRef = useRef<HTMLImageElement[]>(new Array(totalFrames));
@@ -79,16 +75,6 @@ export function ScrollSequence() {
 
     window.addEventListener("resize", resizeCanvas);
 
-    // Initial render setup
-    const firstImg = new Image();
-    firstImg.src = "/frames/ezgif-frame-001.jpg";
-    firstImg.onload = () => {
-      imagesRef.current[0] = firstImg;
-      loadedImagesRef.current.add(0);
-      resizeCanvas();
-      startQueue();
-    };
-
     let scrollTriggerInstance: ScrollTrigger | null = null;
 
     const initScrollTrigger = () => {
@@ -105,6 +91,17 @@ export function ScrollSequence() {
       });
     };
 
+    // Initial render setup
+    const firstImg = new Image();
+    firstImg.src = "/frames/ezgif-frame-001.jpg";
+    firstImg.onload = () => {
+      imagesRef.current[0] = firstImg;
+      loadedImagesRef.current.add(0);
+      resizeCanvas();
+      initScrollTrigger(); // Initialize scroll scrubbing immediately!
+      startQueue(); // Load all other frames in the background
+    };
+
     const startQueue = () => {
       const loadQueue: number[] = [];
       for (let i = 0; i < totalFrames; i += coreStep) {
@@ -117,8 +114,6 @@ export function ScrollSequence() {
         if (i % 2 !== 0 && i % coreStep !== 0) loadQueue.push(i);
       }
 
-      const totalCoreCount = Math.floor(totalFrames / coreStep);
-      let coreLoaded = 0;
       let queueIdx = 0;
       const maxWorkers = 5;
 
@@ -131,19 +126,6 @@ export function ScrollSequence() {
         img.onload = () => {
           imagesRef.current[idx] = img;
           loadedImagesRef.current.add(idx);
-
-          if (idx % coreStep === 0) {
-            coreLoaded++;
-            const percent = Math.min(Math.round((coreLoaded / totalCoreCount) * 100), 100);
-            setProgress(percent);
-            
-            if (percent === 100) {
-              setIsReady(true);
-              setTimeout(() => {
-                initScrollTrigger();
-              }, 100);
-            }
-          }
 
           if (Math.round(sequenceRef.current.frame) === idx) {
             drawFrame(idx);
@@ -170,45 +152,18 @@ export function ScrollSequence() {
   }, []);
 
   return (
-    <>
-      {/* Fixed background layer */}
-      <div className="fixed inset-0 w-full h-screen h-[100dvh] z-[-1] overflow-hidden pointer-events-none bg-[#0B0F19] select-none">
-        {/* Subtle grid pattern overlay */}
-        <div className="absolute inset-0 bp-grid-dark opacity-10" />
-        
-        {/* Dimming mask for text legibility */}
-        <div className="absolute inset-0 bg-gradient-to-b from-[#0F172A]/50 via-[#0F172A]/70 to-[#0F172A]/90" />
-        
-        <canvas 
-          ref={canvasRef} 
-          className="w-full h-full object-contain block opacity-35 mix-blend-screen" 
-          style={{ width: '100%', height: '100%' }}
-        />
-      </div>
-
-      {/* Global Preloader Overlay */}
-      {!isReady && (
-        <div className="fixed inset-0 bg-[#0B0F19] z-[9999] flex flex-col items-center justify-center p-6 transition-opacity duration-700">
-          <div className="bg-[#1E293B]/40 border border-white/10 p-8 rounded-lg max-w-md w-full text-center backdrop-blur-md">
-            <div className="inline-flex items-center gap-1.5 text-orange font-mono text-[10px] font-bold tracking-widest uppercase border border-orange/30 px-3 py-1 rounded mb-4">
-              ◤ Next G Engineers
-            </div>
-            <h4 className="text-xl font-bold text-white mb-2">3D Construction Simulator</h4>
-            <p className="text-xs text-muted-foreground mb-6">Preloading blueprint structures...</p>
-            
-            <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden relative mb-3">
-              <div 
-                className="absolute left-0 top-0 bottom-0 bg-orange transition-all duration-300 shadow-[0_0_8px_rgba(232,98,44,0.5)]" 
-                style={{ width: `${progress}%` }} 
-              />
-            </div>
-            <div className="text-xs font-mono text-orange font-bold flex justify-between">
-              <span>INITIALIZING</span>
-              <span>{progress}%</span>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
+    <div className="fixed inset-0 w-full h-screen h-[100dvh] z-[-1] overflow-hidden pointer-events-none bg-[#0B0F19] select-none">
+      {/* Subtle grid pattern overlay */}
+      <div className="absolute inset-0 bp-grid-dark opacity-10" />
+      
+      {/* Dimming mask for text legibility */}
+      <div className="absolute inset-0 bg-gradient-to-b from-[#0F172A]/50 via-[#0F172A]/70 to-[#0F172A]/90" />
+      
+      <canvas 
+        ref={canvasRef} 
+        className="w-full h-full object-contain block opacity-35 mix-blend-screen" 
+        style={{ width: '100%', height: '100%' }}
+      />
+    </div>
   );
 }
