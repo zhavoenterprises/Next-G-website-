@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Construction Sequence Simulator | Next G Engineers</title>
+  <meta name="description" content="Interactive 3D structural construction sequence simulation by Next G Engineers using scroll-driven canvas rendering.">
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+
+  <!-- GSAP CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+
+  <style>
+    :root {
+      --orange: #E8622C;
+      --navy: #0F172A;
+      --navy-light: #1E293B;
+      --bg: #0B0F19;
+      --text: #F8FAFC;
+      --text-muted: #94A3B8;
+      --font-display: 'Outfit', sans-serif;
+      --font-mono: 'Space Mono', monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: var(--font-display);
+      overflow-x: hidden;
+      -webkit-overflow-scrolling: touch;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Loading Overlay */
+    #loader-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 10000;
+      background-color: var(--bg);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      transition: opacity 0.8s ease, visibility 0.8s ease;
+      padding: 20px;
+    }
+
+    #loader-overlay.fade-out {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    .loader-card {
+      background: rgba(15, 23, 42, 0.4);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      padding: 40px;
+      width: 100%;
+      max-width: 460px;
+      text-align: center;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+    }
+
+    .loader-logo {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--orange);
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      margin-bottom: 24px;
+      display: inline-block;
+      font-weight: 700;
+      border: 1px solid var(--orange);
+      padding: 4px 12px;
+      border-radius: 4px;
+    }
+
+    .loader-title {
+      font-size: 24px;
+      font-weight: 800;
+      margin-bottom: 8px;
+      color: #fff;
+    }
+
+    .loader-desc {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 32px;
+      line-height: 1.5;
+    }
+
+    .progress-bar-container {
+      width: 100%;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 4px;
+      overflow: hidden;
+      position: relative;
+      margin-bottom: 12px;
+    }
+
+    .progress-bar-fill {
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 0%;
+      background: linear-gradient(90deg, var(--orange), #ff8c5a);
+      transition: width 0.3s cubic-bezier(0.1, 0.8, 0.2, 1);
+      box-shadow: 0 0 10px rgba(232, 98, 44, 0.5);
+    }
+
+    .progress-text {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--orange);
+      font-weight: 700;
+    }
+
+    .progress-subtext {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 6px;
+    }
+
+    /* Main Scroll Section */
+    #scroll-section {
+      position: relative;
+      width: 100%;
+      height: 400vh; /* Define Scroll Depth */
+      background: linear-gradient(180deg, #0b0f19 0%, #07090f 50%, #030406 100%);
+    }
+
+    #canvas-container {
+      position: relative;
+      width: 100%;
+      height: 100vh;
+      height: 100dvh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      will-change: transform;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+      will-change: transform;
+    }
+
+    /* Floating UI Controls */
+    .floating-ui {
+      position: absolute;
+      bottom: 40px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 100;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      pointer-events: none;
+      text-align: center;
+    }
+
+    .scroll-hint {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--orange);
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      animation: bounce 2s infinite;
+      background: rgba(11, 15, 25, 0.7);
+      padding: 8px 16px;
+      border-radius: 20px;
+      border: 1px solid rgba(232, 98, 44, 0.2);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
+
+    .milestone-badge {
+      position: absolute;
+      top: 40px;
+      left: 40px;
+      z-index: 100;
+      font-family: var(--font-mono);
+      background: rgba(11, 15, 25, 0.8);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 12px 20px;
+      border-radius: 8px;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .milestone-badge span {
+      display: block;
+    }
+
+    .milestone-label {
+      color: var(--text-muted);
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+
+    .milestone-value {
+      color: #fff;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .milestone-progress {
+      color: var(--orange);
+      font-size: 11px;
+      margin-top: 4px;
+    }
+
+    @keyframes bounce {
+      0%, 20%, 50%, 80%, 100% {
+        transform: translateY(0);
+      }
+      40% {
+        transform: translateY(-10px);
+      }
+      60% {
+        transform: translateY(-5px);
+      }
+    }
+
+    /* Screen Overlay details */
+    .brand-header {
+      position: absolute;
+      top: 40px;
+      right: 40px;
+      z-index: 100;
+      text-align: right;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      letter-spacing: 0.1em;
+      color: var(--text-muted);
+      pointer-events: none;
+    }
+
+    .brand-header strong {
+      color: var(--orange);
+    }
+
+    /* Mobile Responsive adjustments */
+    @media (max-width: 768px) {
+      .milestone-badge {
+        top: 20px;
+        left: 20px;
+        padding: 8px 14px;
+      }
+      .brand-header {
+        top: 20px;
+        right: 20px;
+      }
+      .loader-card {
+        padding: 30px 20px;
+      }
+      .loader-title {
+        font-size: 20px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Loading Screen Overlay -->
+  <div id="loader-overlay">
+    <div class="loader-card">
+      <div class="loader-logo">◤ Next G Engineers</div>
+      <h1 class="loader-title">3D Construction Sequence</h1>
+      <p class="loader-desc">Preloading structural framework sequence models for interactive scrolling.</p>
+      
+      <div class="progress-bar-container">
+        <div class="progress-bar-fill" id="progress-fill"></div>
+      </div>
+      
+      <div class="progress-text" id="progress-percent">0%</div>
+      <div class="progress-subtext" id="progress-subtext">Initializing file buffer...</div>
+    </div>
+  </div>
+
+  <!-- Main Scroll Sequence Wrapper -->
+  <div id="scroll-section">
+    <div id="canvas-container">
+      <canvas id="sequence-canvas"></canvas>
+    </div>
+  </div>
+
+  <!-- Floating UI elements -->
+  <div class="milestone-badge">
+    <span class="milestone-label">Simulation Stage</span>
+    <span class="milestone-value" id="stage-name">Initializing...</span>
+    <span class="milestone-progress" id="stage-frame">Frame: 0 / 300</span>
+  </div>
+
+  <div class="brand-header">
+    <strong>NG</strong> // 3D.SIMULATION.v2
+  </div>
+
+  <div class="floating-ui">
+    <div class="scroll-hint">↓ Scroll Down to Scrub Simulation</div>
+  </div>
+
+  <script>
+    // Configuration
+    const totalFrames = 300;
+    const coreStep = 5; // Load every 5th frame first for rapid interaction
+    const images = new Array(totalFrames);
+    const loadedImages = new Set();
+    const sequence = { frame: 0 };
+    
+    // UI Elements
+    const canvas = document.getElementById("sequence-canvas");
+    const ctx = canvas.getContext("2d");
+    const progressFill = document.getElementById("progress-fill");
+    const progressPercent = document.getElementById("progress-percent");
+    const progressSubtext = document.getElementById("progress-subtext");
+    const loaderOverlay = document.getElementById("loader-overlay");
+    const stageName = document.getElementById("stage-name");
+    const stageFrame = document.getElementById("stage-frame");
+
+    // Dynamic Pixel Scaling to maintain Retina/Sharpness
+    let dpr = window.devicePixelRatio || 1;
+
+    function resizeCanvas() {
+      const rect = canvas.parentElement.getBoundingClientRect();
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.scale(dpr, dpr);
+      
+      // Re-draw current frame after resizing
+      drawFrame(sequence.frame);
+    }
+
+    // Set up responsive event listeners
+    window.addEventListener("resize", resizeCanvas);
+
+    // Aspect-ratio cover function for Canvas
+    function drawImageProp(ctx, img) {
+      const w = canvas.width / dpr;
+      const h = canvas.height / dpr;
+      const iw = img.width;
+      const ih = img.height;
+      const r = Math.min(w / iw, h / ih);
+      
+      // Center image logic
+      let nw = iw * r;
+      let nh = ih * r;
+      let cx = (w - nw) / 2;
+      let cy = (h - nh) / 2;
+
+      ctx.drawImage(img, 0, 0, iw, ih, cx, cy, nw, nh);
+    }
+
+    // Map scroll/frame progress to construction milestones
+    function updateMilestones(frameIndex) {
+      const current = Math.round(frameIndex);
+      stageFrame.textContent = `Frame: ${current + 1} / ${totalFrames}`;
+
+      if (current < 30) {
+        stageName.textContent = "Foundation & Excavation Planning";
+      } else if (current < 90) {
+        stageName.textContent = "Column Erection & Steel Framework";
+      } else if (current < 170) {
+        stageName.textContent = "Beam Reinforcement & Deck Slab";
+      } else if (current < 250) {
+        stageName.textContent = "Concrete Pouring & Curing Stage";
+      } else {
+        stageName.textContent = "Final Structural Inspection & Stripping";
+      }
+    }
+
+    // Return index of closest loaded frame to avoid blank spaces during scrubbing
+    function findClosestLoadedIndex(targetIndex) {
+      if (loadedImages.has(targetIndex)) return targetIndex;
+      
+      let closest = 0;
+      let minDiff = Infinity;
+      
+      for (const idx of loadedImages) {
+        const diff = Math.abs(idx - targetIndex);
+        if (diff < minDiff) {
+          minDiff = diff;
+          closest = idx;
+        }
+      }
+      
+      return closest;
+    }
+
+    function drawFrame(frameIndex) {
+      const rounded = Math.round(frameIndex);
+      const actualIndex = findClosestLoadedIndex(rounded);
+      const img = images[actualIndex];
+      
+      if (img && img.complete) {
+        ctx.clearRect(0, 0, canvas.width / dpr, canvas.height / dpr);
+        drawImageProp(ctx, img);
+        updateMilestones(frameIndex);
+      }
+    }
+
+    // Initialize ScrollTrigger and GSAP timeline
+    function initScrollAnimation() {
+      gsap.registerPlugin(ScrollTrigger);
+
+      // Normalization of touch events prevents iOS Safari address bar jumps from thrashing layout
+      ScrollTrigger.normalizeScroll(true);
+      ScrollTrigger.config({ ignoreMobileResize: true });
+
+      gsap.to(sequence, {
+        frame: totalFrames - 1,
+        snap: "frame", // Snap animation state to integer steps
+        ease: "none",
+        scrollTrigger: {
+          trigger: "#scroll-section",
+          start: "top top",
+          end: "bottom bottom",
+          scrub: 0.5, // Smooth lag effect
+          pin: "#canvas-container",
+          anticipatePin: 1,
+          invalidateOnRefresh: true
+        },
+        onUpdate: () => {
+          drawFrame(sequence.frame);
+        }
+      });
+
+      // Recalculate ScrollTrigger on mount
+      ScrollTrigger.refresh();
+    }
+
+    // Progressive Loading Engine
+    function startProgressiveLoading() {
+      // 1. Prepare image slot arrays and load first frame immediately
+      const pad = (num) => String(num).padStart(3, '0');
+      
+      const firstImg = new Image();
+      firstImg.src = `/frames/ezgif-frame-001.jpg`;
+      firstImg.onload = () => {
+        images[0] = firstImg;
+        loadedImages.add(0);
+        
+        // Match canvas coordinate sizing with DPR and render immediately
+        resizeCanvas();
+        
+        // Start downloading the remaining frames
+        queueRemainingFrames();
+      };
+    }
+
+    function queueRemainingFrames() {
+      const loadQueue = [];
+      
+      // Step A: Queue every 5th core frame for interactive start
+      for (let i = 0; i < totalFrames; i += coreStep) {
+        if (i !== 0) loadQueue.push(i);
+      }
+
+      // Step B: Queue intermediate 2nd frames
+      for (let i = 0; i < totalFrames; i += 2) {
+        if (i % coreStep !== 0 && i !== 0) loadQueue.push(i);
+      }
+
+      // Step C: Queue the rest of the odd index frames
+      for (let i = 1; i < totalFrames; i += 2) {
+        if (i % 2 !== 0 && i % coreStep !== 0) loadQueue.push(i);
+      }
+
+      const totalCoreCount = Math.floor(totalFrames / coreStep);
+      let coreLoaded = 0;
+      let currentQueueIndex = 0;
+      const maxWorkers = 5; // Load 5 files concurrently to preserve download pipelines
+
+      function updateLoaderUI() {
+        const percent = Math.min(Math.round((coreLoaded / totalCoreCount) * 100), 100);
+        progressFill.style.width = `${percent}%`;
+        progressPercent.textContent = `${percent}%`;
+        
+        if (percent < 100) {
+          progressSubtext.textContent = `Preloading core interactive keyframes (${coreLoaded}/${totalCoreCount})...`;
+        } else {
+          progressSubtext.textContent = `Core frames ready! Launching simulation engine...`;
+          setTimeout(() => {
+            loaderOverlay.classList.add("fade-out");
+            initScrollAnimation();
+          }, 400);
+        }
+      }
+
+      function worker() {
+        if (currentQueueIndex >= loadQueue.length) return;
+        
+        const idx = loadQueue[currentQueueIndex++];
+        const img = new Image();
+        img.src = `/frames/ezgif-frame-${String(idx + 1).padStart(3, '0')}.jpg`;
+        
+        img.onload = () => {
+          images[idx] = img;
+          loadedImages.add(idx);
+
+          // If it belongs to core frames (every 5th), advance primary loading screen progress
+          if (idx % coreStep === 0) {
+            coreLoaded++;
+            updateLoaderUI();
+          }
+
+          // If we are actively scrubbing this frame, render it live
+          if (Math.round(sequence.frame) === idx) {
+            drawFrame(idx);
+          }
+
+          worker(); // Fetch next item
+        };
+
+        img.onerror = () => {
+          // If a file fails, skip and continue
+          worker();
+        };
+      }
+
+      // Launch concurrent downloader workers
+      for (let w = 0; w < maxWorkers; w++) {
+        worker();
+      }
+    }
+
+    // Kickoff preloading sequence on window mount
+    window.addEventListener("DOMContentLoaded", () => {
+      startProgressiveLoading();
+    });
+  </script>
+</body>
+</html>
