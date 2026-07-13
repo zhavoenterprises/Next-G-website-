@@ -3,14 +3,10 @@ import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 
 export function ScrollSequence() {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const pinRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   
   const [progress, setProgress] = useState(0);
   const [isReady, setIsReady] = useState(false);
-  const [stageText, setStageText] = useState("Initializing...");
-  const [frameText, setFrameText] = useState("Frame: 1 / 300");
 
   const totalFrames = 300;
   const coreStep = 5;
@@ -21,7 +17,6 @@ export function ScrollSequence() {
   useEffect(() => {
     gsap.registerPlugin(ScrollTrigger);
 
-    // Normalize touch events for mobile momentum scroll
     ScrollTrigger.normalizeScroll(true);
     ScrollTrigger.config({ ignoreMobileResize: true });
 
@@ -63,23 +58,6 @@ export function ScrollSequence() {
       return closest;
     };
 
-    const updateMilestones = (frameIndex: number) => {
-      const current = Math.round(frameIndex);
-      setFrameText(`Frame: ${current + 1} / ${totalFrames}`);
-
-      if (current < 30) {
-        setStageText("Foundation & Excavation Planning");
-      } else if (current < 90) {
-        setStageText("Column Erection & Steel Framework");
-      } else if (current < 170) {
-        setStageText("Beam Reinforcement & Deck Slab");
-      } else if (current < 250) {
-        setStageText("Concrete Pouring & Curing Stage");
-      } else {
-        setStageText("Final Structural Inspection");
-      }
-    };
-
     const drawFrame = (frameIndex: number) => {
       const rounded = Math.round(frameIndex);
       const actualIndex = findClosestLoadedIndex(rounded);
@@ -88,15 +66,13 @@ export function ScrollSequence() {
       if (img && img.complete) {
         ctx.clearRect(0, 0, canvas.width / dpr, canvas.height / dpr);
         drawImageProp(img);
-        updateMilestones(frameIndex);
       }
     };
 
     const resizeCanvas = () => {
-      if (!canvas || !canvas.parentElement) return;
-      const rect = canvas.parentElement.getBoundingClientRect();
-      canvas.width = rect.width * dpr;
-      canvas.height = rect.height * dpr;
+      if (!canvas) return;
+      canvas.width = window.innerWidth * dpr;
+      canvas.height = window.innerHeight * dpr;
       ctx.scale(dpr, dpr);
       drawFrame(sequenceRef.current.frame);
     };
@@ -110,8 +86,6 @@ export function ScrollSequence() {
       imagesRef.current[0] = firstImg;
       loadedImagesRef.current.add(0);
       resizeCanvas();
-      
-      // Start queue
       startQueue();
     };
 
@@ -119,13 +93,10 @@ export function ScrollSequence() {
 
     const initScrollTrigger = () => {
       scrollTriggerInstance = ScrollTrigger.create({
-        trigger: containerRef.current,
+        trigger: document.documentElement,
         start: "top top",
         end: "bottom bottom",
-        scrub: 0.5,
-        pin: pinRef.current,
-        anticipatePin: 1,
-        invalidateOnRefresh: true,
+        scrub: 1.2, // Smooth follow scrub lag
         onUpdate: (self) => {
           const frameIndex = self.progress * (totalFrames - 1);
           sequenceRef.current.frame = frameIndex;
@@ -199,56 +170,45 @@ export function ScrollSequence() {
   }, []);
 
   return (
-    <div ref={containerRef} className="relative w-full h-[300vh] bg-navy-light overflow-visible">
-      <div ref={pinRef} className="relative w-full h-screen flex flex-col items-center justify-center overflow-hidden bg-navy">
-        <div className="pointer-events-none absolute inset-0 bp-grid-dark opacity-30" />
+    <>
+      {/* Fixed background layer */}
+      <div className="fixed inset-0 w-full h-screen h-[100dvh] z-[-1] overflow-hidden pointer-events-none bg-[#0B0F19] select-none">
+        {/* Subtle grid pattern overlay */}
+        <div className="absolute inset-0 bp-grid-dark opacity-10" />
         
-        {/* Title overlay */}
-        <div className="absolute top-10 right-10 z-10 text-right pointer-events-none font-mono text-[10px] text-offwhite/50 tracking-wider">
-          NG // 3D.SIMULATION.v2
-        </div>
+        {/* Dimming mask for text legibility */}
+        <div className="absolute inset-0 bg-gradient-to-b from-[#0F172A]/50 via-[#0F172A]/70 to-[#0F172A]/90" />
+        
+        <canvas 
+          ref={canvasRef} 
+          className="w-full h-full object-contain block opacity-35 mix-blend-screen" 
+          style={{ width: '100%', height: '100%' }}
+        />
+      </div>
 
-        {/* Milestone Indicator */}
-        <div className="absolute top-10 left-10 z-10 pointer-events-none bg-graphite/80 border border-white/10 p-4 rounded backdrop-blur">
-          <div className="text-[9px] font-mono text-amber uppercase tracking-wider mb-1">◤ Simulation Stage</div>
-          <div className="text-sm font-semibold text-white">{stageText}</div>
-          <div className="text-[10px] font-mono text-orange mt-1">{frameText}</div>
-        </div>
-
-        {/* Scroll Instruction */}
-        <div className="absolute bottom-10 z-10 pointer-events-none bg-graphite/60 border border-white/10 px-4 py-2 rounded-full backdrop-blur">
-          <div className="text-[10px] font-mono text-orange tracking-widest uppercase animate-pulse">
-            ↓ Scroll to scrub construction timeline
-          </div>
-        </div>
-
-        {/* Canvas */}
-        <canvas ref={canvasRef} className="w-full h-full max-w-full max-h-full object-contain block will-change-transform" />
-
-        {/* Local Loading Screen Overlay */}
-        {!isReady && (
-          <div className="absolute inset-0 bg-navy z-20 flex flex-col items-center justify-center p-6 transition-opacity duration-500">
-            <div className="bg-graphite/40 border border-white/10 p-8 rounded-lg max-w-md w-full text-center backdrop-blur-md">
-              <div className="inline-flex items-center gap-1.5 text-orange font-mono text-[10px] font-bold tracking-widest uppercase border border-orange/30 px-3 py-1 rounded mb-4">
-                ◤ Next G Engineers
-              </div>
-              <h4 className="text-xl font-bold text-white mb-2">3D Construction Sequence</h4>
-              <p className="text-xs text-muted-foreground mb-6">Preloading structural keyframes...</p>
-              
-              <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden relative mb-3">
-                <div 
-                  className="absolute left-0 top-0 bottom-0 bg-orange transition-all duration-300 shadow-[0_0_8px_rgba(232,98,44,0.5)]" 
-                  style={{ width: `${progress}%` }} 
-                />
-              </div>
-              <div className="text-xs font-mono text-orange font-bold flex justify-between">
-                <span>PROGRESS</span>
-                <span>{progress}%</span>
-              </div>
+      {/* Global Preloader Overlay */}
+      {!isReady && (
+        <div className="fixed inset-0 bg-[#0B0F19] z-[9999] flex flex-col items-center justify-center p-6 transition-opacity duration-700">
+          <div className="bg-[#1E293B]/40 border border-white/10 p-8 rounded-lg max-w-md w-full text-center backdrop-blur-md">
+            <div className="inline-flex items-center gap-1.5 text-orange font-mono text-[10px] font-bold tracking-widest uppercase border border-orange/30 px-3 py-1 rounded mb-4">
+              ◤ Next G Engineers
+            </div>
+            <h4 className="text-xl font-bold text-white mb-2">3D Construction Simulator</h4>
+            <p className="text-xs text-muted-foreground mb-6">Preloading blueprint structures...</p>
+            
+            <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden relative mb-3">
+              <div 
+                className="absolute left-0 top-0 bottom-0 bg-orange transition-all duration-300 shadow-[0_0_8px_rgba(232,98,44,0.5)]" 
+                style={{ width: `${progress}%` }} 
+              />
+            </div>
+            <div className="text-xs font-mono text-orange font-bold flex justify-between">
+              <span>INITIALIZING</span>
+              <span>{progress}%</span>
             </div>
           </div>
-        )}
-      </div>
-    </div>
+        </div>
+      )}
+    </>
   );
 }

@@ -51,8 +51,10 @@ export default function Home() {
       <title>NG · Building Madurai's Future — Next G Engineers Promoters</title>
       <meta name="description" content="Residential, commercial and plotted development in Madurai and Ramanathapuram. 11+ years of trusted engineering execution." />
       
+      <ScrollSequence />
+
       {/* HERO */}
-      <section className="relative overflow-hidden bg-graphite text-offwhite">
+      <section className="relative overflow-hidden bg-transparent text-offwhite">
         <div className="pointer-events-none absolute inset-0 bp-grid-dark opacity-70" aria-hidden />
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-transparent via-transparent to-orange/10" aria-hidden />
         <span className="pointer-events-none absolute left-5 top-5 h-4 w-4 border-l-2 border-t-2 border-orange" aria-hidden />
@@ -111,7 +113,7 @@ export default function Home() {
       </section>
 
       {/* WHY US */}
-      <section className="relative border-b border-border bg-offwhite">
+      <section className="relative border-b border-border bg-offwhite/90 backdrop-blur-md">
         <div className="mx-auto max-w-7xl px-5 py-20 lg:px-8">
           <SectionHeading
             eyebrow="What sets NG apart"
@@ -139,11 +141,8 @@ export default function Home() {
         </div>
       </section>
 
-      {/* 3D CONSTRUCTION TIMELINE SIMULATOR */}
-      <ScrollSequence />
-
       {/* FEATURED PROJECTS */}
-      <section className="relative bg-offwhite bp-grid">
+      <section className="relative bg-offwhite/90 backdrop-blur-md bp-grid">
         <div className="mx-auto max-w-7xl px-5 py-20 lg:px-8">
           <div className="flex flex-wrap items-end justify-between gap-6">
             <SectionHeading
@@ -187,7 +186,7 @@ export default function Home() {
       </section>
 
       {/* SERVICES */}
-      <section className="relative border-y border-border bg-navy text-offwhite">
+      <section className="relative border-y border-border bg-navy/75 backdrop-blur-md text-offwhite">
         <div className="pointer-events-none absolute inset-0 bp-grid-dark opacity-50" aria-hidden />
         <div className="relative mx-auto max-w-7xl px-5 py-20 lg:px-8">
           <SectionHeading
@@ -214,7 +213,7 @@ export default function Home() {
       </section>
 
       {/* TESTIMONIALS */}
-      <section className="bg-offwhite">
+      <section className="bg-offwhite/90 backdrop-blur-md">
         <div className="mx-auto max-w-7xl px-5 py-20 lg:px-8">
           <SectionHeading
             eyebrow="Words from our clients"
@@ -238,7 +237,7 @@ export default function Home() {
       </section>
 
       {/* FINAL CTA */}
-      <section className="relative overflow-hidden bg-graphite text-offwhite">
+      <section className="relative overflow-hidden bg-transparent text-offwhite">
         <div className="pointer-events-none absolute inset-0 bp-grid-dark opacity-70" aria-hidden />
         <div className="relative mx-auto grid max-w-7xl gap-8 px-5 py-20 md:grid-cols-[1.2fr_0.8fr] md:items-end lg:px-8">
           <div>
