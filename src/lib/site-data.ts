@@ -162,11 +162,8 @@ export type Plot = {
   designFee: number; // ₹
 };
 
-export const PLOTS: Plot[] = [
-  { id: "anna-nagar", location: "Anna Nagar, Madurai", lengthFt: 40, breadthFt: 60, designFee: 15000 },
-  { id: "kk-nagar", location: "K.K. Nagar, Madurai", lengthFt: 30, breadthFt: 45, designFee: 9500 },
-  { id: "vilangudi", location: "Vilangudi, Madurai", lengthFt: 50, breadthFt: 80, designFee: 22000 },
-];
+export const PLOTS: Plot[] = [];
+
 
 export function whatsappLink(message: string) {
   return `https://wa.me/${COMPANY.phoneIntl}?text=${encodeURIComponent(message)}`;

@@ -36,8 +36,7 @@ export function Header() {
           <img
             src="/logo.jpg"
             alt="Next G Logo"
-            className="h-10 w-10 shrink-0 object-cover rounded"
-            style={{ borderRadius: 2 }}
+            className="h-10 w-10 shrink-0 object-contain rounded-full"
           />
           <span className="min-w-0">
             <span className="mono-label block text-muted-foreground">Next G Engineers</span>

@@ -12,8 +12,7 @@ export function Footer() {
             <img
               src="/logo.jpg"
               alt="Next G Logo"
-              className="h-11 w-11 shrink-0 object-cover rounded"
-              style={{ borderRadius: 2 }}
+              className="h-11 w-11 shrink-0 object-contain rounded-full"
             />
             <div>
               <div className="mono-label text-amber">Next G Engineers</div>
