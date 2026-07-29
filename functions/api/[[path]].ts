@@ -721,5 +721,27 @@ export const onRequest = async (context: {
     }
   }
 
+  // DELETE /api/admin/client-projects/:id
+  if (
+    url.pathname.startsWith("/api/admin/client-projects/") &&
+    !url.pathname.endsWith("/logs") &&
+    request.method === "DELETE"
+  ) {
+    const parts = url.pathname.split("/");
+    const id = parseInt(parts[4], 10);
+    if (isNaN(id)) {
+      return apiResponse({ error: "Invalid project ID" }, 400);
+    }
+    try {
+      // Cascade-delete related logs first (D1 doesn't enforce FK constraints)
+      await env.DB.prepare("DELETE FROM progress_logs WHERE project_id = ?").bind(id).run();
+      await env.DB.prepare("DELETE FROM client_projects WHERE id = ?").bind(id).run();
+      return apiResponse({ success: true });
+    } catch (e: any) {
+      return apiResponse({ error: e.message }, 500);
+    }
+  }
+
   return apiResponse({ error: "API Endpoint not found" }, 404);
 };
+
