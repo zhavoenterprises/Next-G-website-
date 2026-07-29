@@ -33,9 +33,12 @@ export function Header() {
     >
       <div className="mx-auto grid max-w-7xl grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-5 py-4 lg:px-8">
         <Link to="/" className="flex min-w-0 items-center gap-3">
-          <span className="grid h-10 w-10 shrink-0 place-items-center bg-navy text-offwhite" style={{ borderRadius: 2 }}>
-            <span className="font-display text-lg font-bold leading-none">NG</span>
-          </span>
+          <img
+            src="/logo.jpg"
+            alt="Next G Logo"
+            className="h-10 w-10 shrink-0 object-cover rounded"
+            style={{ borderRadius: 2 }}
+          />
           <span className="min-w-0">
             <span className="mono-label block text-muted-foreground">Next G Engineers</span>
             <span className="block truncate font-display text-sm font-semibold text-navy">Promoters Pvt Ltd</span>

@@ -12,23 +12,57 @@ let dbInitialized = false;
 async function initializeDatabase(db: any) {
   if (dbInitialized) return;
   
+  // Create freelancer board tables
   await db.exec("CREATE TABLE IF NOT EXISTS projects (id INTEGER PRIMARY KEY AUTOINCREMENT, category TEXT CHECK(category IN ('2D','3D','structure')), title TEXT NOT NULL, area TEXT, planning_details TEXT, description TEXT, image_url TEXT, other_info TEXT, status TEXT DEFAULT 'open' CHECK(status IN ('open','assigned','completed','paid')), accepted_by_name TEXT, accepted_by_phone TEXT, accepted_at TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP);");
 
   await db.exec("CREATE TABLE IF NOT EXISTS boq_projects (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, description TEXT, status TEXT DEFAULT 'open' CHECK(status IN ('open','assigned','completed','paid')), accepted_by_name TEXT, accepted_by_phone TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP);");
 
   await db.exec("CREATE TABLE IF NOT EXISTS boq_line_items (id INTEGER PRIMARY KEY AUTOINCREMENT, boq_project_id INTEGER REFERENCES boq_projects(id) ON DELETE CASCADE, item_name TEXT, unit TEXT, quantity REAL, rate REAL, amount REAL);");
 
-  // Phase 2 Migrations: Column additions
+  // Create decoupled client tracker tables
+  await db.exec("CREATE TABLE IF NOT EXISTS client_projects (id INTEGER PRIMARY KEY AUTOINCREMENT, category TEXT CHECK(category IN ('2D','3D','structure','BOQ')), title TEXT NOT NULL, area TEXT, planning_details TEXT, description TEXT, image_url TEXT, other_info TEXT, status TEXT DEFAULT 'assigned' CHECK(status IN ('assigned','completed','paid')), client_name TEXT, client_phone TEXT, progress_percent INTEGER DEFAULT 0, source_file_url TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP);");
+
+  // Drop old progress_logs if it links to wrong table (projects)
   try {
-    await db.exec("ALTER TABLE projects ADD COLUMN source_file_url TEXT;").catch(() => {});
-    await db.exec("ALTER TABLE projects ADD COLUMN progress_percent INTEGER DEFAULT 0;").catch(() => {});
-    await db.exec("ALTER TABLE projects ADD COLUMN progress_notes TEXT;").catch(() => {});
+    const logTableSchema = await db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='progress_logs'").first();
+    if (logTableSchema && logTableSchema.sql && logTableSchema.sql.includes("REFERENCES projects")) {
+      await db.exec("DROP TABLE progress_logs;");
+    }
   } catch (e) {}
 
+  // Create progress_logs table referencing client_projects
+  await db.exec("CREATE TABLE IF NOT EXISTS progress_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, project_id INTEGER NOT NULL, note TEXT NOT NULL, created_at TEXT DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (project_id) REFERENCES client_projects(id) ON DELETE CASCADE);");
+
+  // Clean freelancer projects table by dropping accidental columns if they exist
   try {
-    await db.exec("ALTER TABLE boq_projects ADD COLUMN source_file_url TEXT;").catch(() => {});
-    await db.exec("ALTER TABLE boq_projects ADD COLUMN progress_percent INTEGER DEFAULT 0;").catch(() => {});
-    await db.exec("ALTER TABLE boq_projects ADD COLUMN progress_notes TEXT;").catch(() => {});
+    const projectsSchema = await db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='projects'").first();
+    if (projectsSchema && projectsSchema.sql) {
+      if (projectsSchema.sql.includes("progress_percent")) {
+        await db.exec("ALTER TABLE projects DROP COLUMN progress_percent;").catch(() => {});
+      }
+      if (projectsSchema.sql.includes("source_file_url")) {
+        await db.exec("ALTER TABLE projects DROP COLUMN source_file_url;").catch(() => {});
+      }
+      if (projectsSchema.sql.includes("progress_notes")) {
+        await db.exec("ALTER TABLE projects DROP COLUMN progress_notes;").catch(() => {});
+      }
+    }
+  } catch (e) {}
+
+  // Clean freelancer boq_projects table by dropping accidental columns if they exist
+  try {
+    const boqSchema = await db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='boq_projects'").first();
+    if (boqSchema && boqSchema.sql) {
+      if (boqSchema.sql.includes("progress_percent")) {
+        await db.exec("ALTER TABLE boq_projects DROP COLUMN progress_percent;").catch(() => {});
+      }
+      if (boqSchema.sql.includes("source_file_url")) {
+        await db.exec("ALTER TABLE boq_projects DROP COLUMN source_file_url;").catch(() => {});
+      }
+      if (boqSchema.sql.includes("progress_notes")) {
+        await db.exec("ALTER TABLE boq_projects DROP COLUMN progress_notes;").catch(() => {});
+      }
+    }
   } catch (e) {}
 
   dbInitialized = true;
@@ -293,6 +327,51 @@ export const onRequest = async (context: {
     return apiResponse({ authenticated });
   }
 
+  // GET /api/client/projects
+  if (url.pathname === "/api/client/projects" && request.method === "GET") {
+    const phone = url.searchParams.get("phone");
+    if (!phone) {
+      return apiResponse({ error: "Phone number parameter is required" }, 400);
+    }
+    try {
+      const { results } = await env.DB.prepare(
+        "SELECT * FROM client_projects WHERE client_phone = ? ORDER BY id DESC"
+      )
+        .bind(phone)
+        .all();
+
+      const standard = results.filter((p: any) => p.category !== "BOQ");
+      const boq = results.filter((p: any) => p.category === "BOQ");
+
+      return apiResponse({ standard, boq });
+    } catch (e: any) {
+      return apiResponse({ error: e.message }, 500);
+    }
+  }
+
+  // GET /api/client/projects/:id/logs
+  if (
+    url.pathname.startsWith("/api/client/projects/") &&
+    url.pathname.endsWith("/logs") &&
+    request.method === "GET"
+  ) {
+    const parts = url.pathname.split("/");
+    const id = parseInt(parts[4], 10);
+    if (isNaN(id)) {
+      return apiResponse({ error: "Invalid project ID" }, 400);
+    }
+    try {
+      const { results } = await env.DB.prepare(
+        "SELECT * FROM progress_logs WHERE project_id = ? ORDER BY created_at DESC"
+      )
+        .bind(id)
+        .all();
+      return apiResponse(results);
+    } catch (e: any) {
+      return apiResponse({ error: e.message }, 500);
+    }
+  }
+
   // ----------------------------------------------------
   // ADMIN SERVICE INTERCEPTOR (AUTHENTICATED)
   // ----------------------------------------------------
@@ -365,14 +444,11 @@ export const onRequest = async (context: {
       if (body.category === "BOQ") {
         // Create BOQ project
         const info = await env.DB.prepare(
-          "INSERT INTO boq_projects (title, description, source_file_url, progress_percent, progress_notes) VALUES (?, ?, ?, ?, ?)"
+          "INSERT INTO boq_projects (title, description) VALUES (?, ?)"
         )
           .bind(
             body.title, 
-            body.description,
-            body.source_file_url || null,
-            Number(body.progress_percent) || 0,
-            body.progress_notes || null
+            body.description
           )
           .run();
 
@@ -403,7 +479,7 @@ export const onRequest = async (context: {
         }
 
         await env.DB.prepare(
-          "INSERT INTO projects (category, title, area, planning_details, description, image_url, other_info, source_file_url, progress_percent, progress_notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+          "INSERT INTO projects (category, title, area, planning_details, description, image_url, other_info) VALUES (?, ?, ?, ?, ?, ?, ?)"
         )
           .bind(
             body.category,
@@ -412,10 +488,7 @@ export const onRequest = async (context: {
             body.planning_details || "",
             body.description || "",
             body.image_url || "",
-            body.other_info || "",
-            body.source_file_url || null,
-            Number(body.progress_percent) || 0,
-            body.progress_notes || null
+            body.other_info || ""
           )
           .run();
 
@@ -455,13 +528,10 @@ export const onRequest = async (context: {
 
       // Edit action
       if (isBoq) {
-        await env.DB.prepare("UPDATE boq_projects SET title = ?, description = ?, source_file_url = ?, progress_percent = ?, progress_notes = ? WHERE id = ?")
+        await env.DB.prepare("UPDATE boq_projects SET title = ?, description = ? WHERE id = ?")
           .bind(
             body.title,
             body.description,
-            body.source_file_url || null,
-            Number(body.progress_percent) || 0,
-            body.progress_notes || null,
             id
           )
           .run();
@@ -487,7 +557,7 @@ export const onRequest = async (context: {
         }
       } else {
         await env.DB.prepare(
-          "UPDATE projects SET title = ?, area = ?, planning_details = ?, description = ?, image_url = ?, other_info = ?, source_file_url = ?, progress_percent = ?, progress_notes = ? WHERE id = ?"
+          "UPDATE projects SET title = ?, area = ?, planning_details = ?, description = ?, image_url = ?, other_info = ? WHERE id = ?"
         )
           .bind(
             body.title,
@@ -496,9 +566,6 @@ export const onRequest = async (context: {
             body.description || "",
             body.image_url || "",
             body.other_info || "",
-            body.source_file_url || null,
-            Number(body.progress_percent) || 0,
-            body.progress_notes || null,
             id
           )
           .run();
@@ -524,30 +591,164 @@ export const onRequest = async (context: {
     }
 
     try {
-      const body = (await request.json()) as { status?: string; progress_percent?: number; progress_notes?: string };
+      const body = (await request.json()) as { status?: string };
       if (!body.status || !["open", "assigned", "completed", "paid"].includes(body.status)) {
         return apiResponse({ error: "Invalid status state" }, 400);
       }
 
       if (isBoq) {
-        await env.DB.prepare("UPDATE boq_projects SET status = ?, progress_percent = ?, progress_notes = ? WHERE id = ?")
+        await env.DB.prepare("UPDATE boq_projects SET status = ? WHERE id = ?")
           .bind(
             body.status, 
-            body.progress_percent !== undefined ? Number(body.progress_percent) : 0,
-            body.progress_notes || null,
             id
           )
           .run();
       } else {
-        await env.DB.prepare("UPDATE projects SET status = ?, progress_percent = ?, progress_notes = ? WHERE id = ?")
+        await env.DB.prepare("UPDATE projects SET status = ? WHERE id = ?")
           .bind(
             body.status, 
-            body.progress_percent !== undefined ? Number(body.progress_percent) : 0,
-            body.progress_notes || null,
             id
           )
           .run();
       }
+      return apiResponse({ success: true });
+    } catch (e: any) {
+      return apiResponse({ error: e.message }, 500);
+    }
+  }
+
+  // GET /api/admin/client-projects/all
+  if (url.pathname === "/api/admin/client-projects/all" && request.method === "GET") {
+    try {
+      const { results } = await env.DB.prepare(
+        "SELECT * FROM client_projects ORDER BY id DESC"
+      ).all();
+      return apiResponse(results);
+    } catch (e: any) {
+      return apiResponse({ error: e.message }, 500);
+    }
+  }
+
+  // POST /api/admin/client-projects
+  if (url.pathname === "/api/admin/client-projects" && request.method === "POST") {
+    try {
+      const body = (await request.json()) as any;
+      if (!body.title || !body.client_phone) {
+        return apiResponse({ error: "Title and client phone are required" }, 400);
+      }
+      const info = await env.DB.prepare(
+        "INSERT INTO client_projects (category, title, area, planning_details, description, image_url, other_info, status, client_name, client_phone, progress_percent, source_file_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+      )
+        .bind(
+          body.category || "2D",
+          body.title,
+          body.area || null,
+          body.planning_details || null,
+          body.description || null,
+          body.image_url || null,
+          body.other_info || null,
+          body.status || "assigned",
+          body.client_name || null,
+          body.client_phone,
+          Number(body.progress_percent) || 0,
+          body.source_file_url || null
+        )
+        .run();
+      return apiResponse({ success: true, id: info.meta.last_row_id });
+    } catch (e: any) {
+      return apiResponse({ error: e.message }, 500);
+    }
+  }
+
+  // PATCH /api/admin/client-projects/:id
+  if (
+    url.pathname.startsWith("/api/admin/client-projects/") &&
+    !url.pathname.endsWith("/logs") &&
+    request.method === "PATCH"
+  ) {
+    const parts = url.pathname.split("/");
+    const id = parseInt(parts[4], 10);
+    if (isNaN(id)) {
+      return apiResponse({ error: "Invalid project ID" }, 400);
+    }
+    try {
+      const body = (await request.json()) as any;
+      
+      if (body.action === "delete") {
+        await env.DB.prepare("DELETE FROM progress_logs WHERE project_id = ?").bind(id).run();
+        await env.DB.prepare("DELETE FROM client_projects WHERE id = ?").bind(id).run();
+        return apiResponse({ success: true });
+      }
+
+      await env.DB.prepare(
+        "UPDATE client_projects SET category = ?, title = ?, area = ?, planning_details = ?, description = ?, image_url = ?, other_info = ?, status = ?, client_name = ?, client_phone = ?, progress_percent = ?, source_file_url = ? WHERE id = ?"
+      )
+        .bind(
+          body.category || "2D",
+          body.title,
+          body.area || null,
+          body.planning_details || null,
+          body.description || null,
+          body.image_url || null,
+          body.other_info || null,
+          body.status || "assigned",
+          body.client_name || null,
+          body.client_phone,
+          Number(body.progress_percent) || 0,
+          body.source_file_url || null,
+          id
+        )
+        .run();
+      return apiResponse({ success: true });
+    } catch (e: any) {
+      return apiResponse({ error: e.message }, 500);
+    }
+  }
+
+  // GET /api/admin/client-projects/:id/logs
+  if (
+    url.pathname.startsWith("/api/admin/client-projects/") &&
+    url.pathname.endsWith("/logs") &&
+    request.method === "GET"
+  ) {
+    const parts = url.pathname.split("/");
+    const id = parseInt(parts[4], 10);
+    if (isNaN(id)) {
+      return apiResponse({ error: "Invalid project ID" }, 400);
+    }
+    try {
+      const { results } = await env.DB.prepare(
+        "SELECT * FROM progress_logs WHERE project_id = ? ORDER BY created_at DESC"
+      )
+        .bind(id)
+        .all();
+      return apiResponse(results);
+    } catch (e: any) {
+      return apiResponse({ error: e.message }, 500);
+    }
+  }
+
+  // POST /api/admin/client-projects/:id/logs
+  if (
+    url.pathname.startsWith("/api/admin/client-projects/") &&
+    url.pathname.endsWith("/logs") &&
+    request.method === "POST"
+  ) {
+    const parts = url.pathname.split("/");
+    const id = parseInt(parts[4], 10);
+    if (isNaN(id)) {
+      return apiResponse({ error: "Invalid project ID" }, 400);
+    }
+    try {
+      const body = (await request.json()) as { note?: string };
+      if (!body.note) {
+        return apiResponse({ error: "Log note is required" }, 400);
+      }
+      await env.DB.prepare(
+        "INSERT INTO progress_logs (project_id, note) VALUES (?, ?)"
+      )
+        .bind(id, body.note)
+        .run();
       return apiResponse({ success: true });
     } catch (e: any) {
       return apiResponse({ error: e.message }, 500);

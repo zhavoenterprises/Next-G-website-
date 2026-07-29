@@ -31,6 +31,8 @@ interface Project {
   source_file_url?: string;
   progress_percent?: number;
   progress_notes?: string;
+  client_name?: string;
+  client_phone?: string;
 }
 
 const STATUS_STATES = ["open", "assigned", "completed", "paid"] as const;
@@ -45,9 +47,59 @@ export default function AdminPortal() {
   const [password, setPassword] = useState("");
   const [loginError, setLoginError] = useState("");
 
-  const [activeTab, setActiveTab] = useState<"2D" | "3D" | "structure" | "BOQ">("2D");
+  const [activeTab, setActiveTab] = useState<"2D" | "3D" | "structure" | "BOQ" | "client">("2D");
   const [projects, setProjects] = useState<Project[]>([]);
+  const [clientProjects, setClientProjects] = useState<Project[]>([]);
   const [isEditing, setIsEditing] = useState(false);
+  const [showLogsModal, setShowLogsModal] = useState(false);
+  const [selectedProjectForLogs, setSelectedProjectForLogs] = useState<Project | null>(null);
+  const [logs, setLogs] = useState<{ id: number; note: string; created_at: string }[]>([]);
+  const [newLogNote, setNewLogNote] = useState("");
+  const [isLoadingLogs, setIsLoadingLogs] = useState(false);
+
+  const fetchLogs = async (projId: number) => {
+    setIsLoadingLogs(true);
+    try {
+      const res = await fetch(`/api/admin/client-projects/${projId}/logs`);
+      if (res.ok) {
+        const data = await res.json() as any[];
+        setLogs(data);
+      }
+    } catch (e) {
+      console.error("Failed to fetch logs", e);
+    } finally {
+      setIsLoadingLogs(false);
+    }
+  };
+
+  const handleOpenLogs = (proj: Project) => {
+    setSelectedProjectForLogs(proj);
+    setLogs([]);
+    setNewLogNote("");
+    setShowLogsModal(true);
+    fetchLogs(proj.id);
+  };
+
+  const handleAddLogSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedProjectForLogs || !newLogNote.trim()) return;
+
+    try {
+      const res = await fetch(`/api/admin/client-projects/${selectedProjectForLogs.id}/logs`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ note: newLogNote }),
+      });
+      if (res.ok) {
+        setNewLogNote("");
+        fetchLogs(selectedProjectForLogs.id);
+      } else {
+        alert("Failed to add progress log entry.");
+      }
+    } catch (err) {
+      alert("Network error. Failed to add progress log entry.");
+    }
+  };
 
   // Analytics Metrics Calculation
   const metrics = useMemo(() => {
@@ -242,6 +294,12 @@ export default function AdminPortal() {
       const data = await res.json() as { standard: Project[]; boq: Project[] };
       const mergedList = [...(data.standard ?? []), ...(data.boq ?? [])];
       setProjects(mergedList);
+
+      const clientRes = await fetch("/api/admin/client-projects/all");
+      if (clientRes.ok) {
+        const clientData = await clientRes.json() as Project[];
+        setClientProjects(clientData.map(p => ({ ...p, category: p.category || "2D" })));
+      }
     } catch (e) {
       console.error("Failed to fetch projects list", e);
     } finally {
@@ -335,7 +393,22 @@ export default function AdminPortal() {
 
   const handleAddClick = () => {
     setIsEditing(false);
-    if (activeTab === "BOQ") {
+    if (activeTab === "client") {
+      setCurrentProject({
+        category: "2D",
+        title: "",
+        area: "",
+        planning_details: "",
+        description: "",
+        image_url: "",
+        other_info: "",
+        status: "assigned",
+        client_name: "",
+        client_phone: "",
+        progress_percent: 0,
+        source_file_url: "",
+      });
+    } else if (activeTab === "BOQ") {
       setCurrentProject({
         category: "BOQ",
         title: "",
@@ -379,16 +452,29 @@ export default function AdminPortal() {
     if (!confirm("Are you sure you want to permanently delete this project?")) return;
 
     try {
-      const queryParam = proj.category === "BOQ" ? "?type=boq" : "";
-      const res = await fetch(`/api/admin/projects/${proj.id}${queryParam}`, {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action: "delete" }),
-      });
-      if (res.ok) {
-        fetchProjects();
+      if (activeTab === "client") {
+        const res = await fetch(`/api/admin/client-projects/${proj.id}`, {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ action: "delete" }),
+        });
+        if (res.ok) {
+          fetchProjects();
+        } else {
+          alert("Delete failed.");
+        }
       } else {
-        alert("Delete failed.");
+        const queryParam = proj.category === "BOQ" ? "?type=boq" : "";
+        const res = await fetch(`/api/admin/projects/${proj.id}${queryParam}`, {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ action: "delete" }),
+        });
+        if (res.ok) {
+          fetchProjects();
+        } else {
+          alert("Delete failed.");
+        }
       }
     } catch (e) {
       alert("Network error. Delete failed.");
@@ -396,6 +482,40 @@ export default function AdminPortal() {
   };
 
   const handleStatusAdvance = async (proj: Project) => {
+    if (activeTab === "client") {
+      const CLIENT_STATUSES = ["assigned", "completed", "paid"] as const;
+      const currentIndex = CLIENT_STATUSES.indexOf(proj.status as any);
+      if (currentIndex === -1 || currentIndex === CLIENT_STATUSES.length - 1) return;
+
+      const nextStatus = CLIENT_STATUSES[currentIndex + 1];
+      let newProgress = proj.progress_percent ?? 0;
+      if (nextStatus === "completed") {
+        newProgress = 100;
+      } else if (nextStatus === "paid") {
+        newProgress = 100;
+      }
+
+      try {
+        const res = await fetch(`/api/admin/client-projects/${proj.id}`, {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            ...proj,
+            status: nextStatus,
+            progress_percent: newProgress
+          }),
+        });
+        if (res.ok) {
+          fetchProjects();
+        } else {
+          alert("Failed to update project status.");
+        }
+      } catch (e) {
+        alert("Network error. Status update failed.");
+      }
+      return;
+    }
+
     const currentIndex = STATUS_STATES.indexOf(proj.status);
     if (currentIndex === -1 || currentIndex === STATUS_STATES.length - 1) return;
 
@@ -439,6 +559,37 @@ export default function AdminPortal() {
     e.preventDefault();
     if (!currentProject.title) {
       alert("Title is required.");
+      return;
+    }
+
+    if (activeTab === "client") {
+      if (!currentProject.client_phone) {
+        alert("Client phone is required.");
+        return;
+      }
+      setIsSaving(true);
+      try {
+        const urlPath = isEditing ? `/api/admin/client-projects/${currentProject.id}` : "/api/admin/client-projects";
+        const method = isEditing ? "PATCH" : "POST";
+
+        const res = await fetch(urlPath, {
+          method,
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(currentProject),
+        });
+
+        if (res.ok) {
+          setShowFormModal(false);
+          fetchProjects();
+        } else {
+          const errData = await res.json() as { error?: string };
+          alert(errData.error ?? "Failed to save project.");
+        }
+      } catch (err) {
+        alert("Network error. Saving failed.");
+      } finally {
+        setIsSaving(false);
+      }
       return;
     }
 
@@ -508,7 +659,12 @@ export default function AdminPortal() {
     return items.reduce((sum, item) => sum + ((item.quantity ?? 0) * (item.rate ?? 0)), 0);
   };
 
-  const filteredProjects = projects.filter((p) => p.category === activeTab);
+  const filteredProjects = useMemo(() => {
+    if (activeTab === "client") {
+      return clientProjects;
+    }
+    return projects.filter((p) => p.category === activeTab);
+  }, [projects, clientProjects, activeTab]);
 
   if (isCheckingSession) {
     return (
@@ -526,9 +682,12 @@ export default function AdminPortal() {
       <div className="min-h-screen bg-offwhite flex flex-col justify-center py-12 sm:px-6 lg:px-8">
         <div className="sm:mx-auto sm:w-full sm:max-w-md">
           <div className="flex justify-center">
-            <span className="grid h-12 w-12 place-items-center bg-navy text-offwhite rounded">
-              <span className="font-display text-xl font-bold leading-none">NG</span>
-            </span>
+            <img
+              src="/logo.jpg"
+              alt="Next G Logo"
+              className="h-12 w-12 object-cover rounded"
+              style={{ borderRadius: 2 }}
+            />
           </div>
           <h2 className="mt-6 text-center text-3xl font-display font-extrabold text-navy">
             Design Studio Admin Portal
@@ -598,9 +757,12 @@ export default function AdminPortal() {
       <div className="bg-navy text-offwhite border-b border-white/10">
         <div className="mx-auto max-w-7xl px-5 py-4 lg:px-8 flex justify-between items-center">
           <div className="flex items-center gap-3">
-            <span className="grid h-8 w-8 place-items-center bg-orange text-white rounded">
-              <span className="font-display text-sm font-bold">A</span>
-            </span>
+            <img
+              src="/logo.jpg"
+              alt="Next G Logo"
+              className="h-8 w-8 object-cover rounded"
+              style={{ borderRadius: 2 }}
+            />
             <div>
               <span className="mono-label block text-[10px] text-amber">Admin Control Board</span>
               <span className="block font-display text-sm font-bold">Design Studio Dashboard</span>
@@ -701,6 +863,7 @@ export default function AdminPortal() {
               { id: "3D", label: "3D Section", Icon: Layers },
               { id: "structure", label: "Structure", Icon: HardHat },
               { id: "BOQ", label: "BOQ Section", Icon: FileText },
+              { id: "client", label: "Client Projects", Icon: User },
             ].map((t) => {
               const TabIcon = t.Icon;
               return (
@@ -788,10 +951,15 @@ export default function AdminPortal() {
                             {p.status}
                           </span>
                           
-                          {p.accepted_by_name && (
+                          {(p.accepted_by_name || p.client_name) && (
                             <div className="text-[10px] text-navy mt-1.5 leading-tight">
-                              <strong>Client:</strong> {p.accepted_by_name}<br/>
-                              <strong>Phone:</strong> <a href={`tel:${p.accepted_by_phone}`} className="underline hover:text-orange">{p.accepted_by_phone}</a>
+                              <strong>Client:</strong> {p.accepted_by_name || p.client_name}<br/>
+                              <strong>Phone:</strong> <a href={`tel:${p.accepted_by_phone || p.client_phone}`} className="underline hover:text-orange">{p.accepted_by_phone || p.client_phone}</a>
+                            </div>
+                          )}
+                          {activeTab === "client" && (
+                            <div className="text-[10px] text-navy mt-1.5 leading-tight">
+                              <strong>Progress:</strong> {p.progress_percent ?? 0}%
                             </div>
                           )}
                         </td>
@@ -824,6 +992,16 @@ export default function AdminPortal() {
                               title="Print / Save Estimate PDF"
                             >
                               <Download size={12} />
+                            </button>
+                          )}
+                          {activeTab === "client" && (
+                            <button
+                              onClick={() => handleOpenLogs(p)}
+                              className="inline-flex items-center justify-center h-8 w-8 text-orange hover:text-white hover:bg-orange border border-border hover:border-orange mr-2 cursor-pointer transition-colors"
+                              style={{ borderRadius: 2 }}
+                              title="Project logs"
+                            >
+                              <FileText size={12} />
                             </button>
                           )}
                           <button
@@ -863,6 +1041,45 @@ export default function AdminPortal() {
             <p className="text-xs text-muted-foreground mb-6">Enter project drawing specs and layout details.</p>
 
             <form onSubmit={handleFormSubmit} className="space-y-4">
+              {activeTab === "client" && (
+                <div className="grid gap-4 md:grid-cols-3">
+                  <div>
+                    <label className="mono-label block text-[10px] text-navy font-semibold mb-1">Drawing Section / Category *</label>
+                    <select
+                      value={currentProject.category || "2D"}
+                      onChange={(e) => setCurrentProject({ ...currentProject, category: e.target.value as any })}
+                      className="w-full border border-border bg-offwhite px-3 py-2 text-navy text-sm outline-none focus:border-orange rounded"
+                    >
+                      <option value="2D">2D Section</option>
+                      <option value="3D">3D Section</option>
+                      <option value="structure">Structure</option>
+                      <option value="BOQ">BOQ Section</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mono-label block text-[10px] text-navy font-semibold mb-1">Client Name</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. John Doe"
+                      value={currentProject.client_name || ""}
+                      onChange={(e) => setCurrentProject({ ...currentProject, client_name: e.target.value })}
+                      className="w-full border border-border bg-offwhite px-3 py-2 text-navy text-sm outline-none focus:border-orange rounded"
+                    />
+                  </div>
+                  <div>
+                    <label className="mono-label block text-[10px] text-navy font-semibold mb-1">Client Phone *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. 9876543210"
+                      value={currentProject.client_phone || ""}
+                      onChange={(e) => setCurrentProject({ ...currentProject, client_phone: e.target.value })}
+                      className="w-full border border-border bg-offwhite px-3 py-2 text-navy text-sm outline-none focus:border-orange rounded"
+                    />
+                  </div>
+                </div>
+              )}
+
               <div>
                 <label className="mono-label block text-[10px] text-navy font-semibold mb-1">Project Title *</label>
                 <input
@@ -1023,40 +1240,42 @@ export default function AdminPortal() {
                 </>
               )}
 
-              {/* Construction Progress Tracking (Applies to both) */}
-              <div className="border-t border-border pt-4 mt-6 space-y-4">
-                <span className="mono-label block text-xs font-bold text-orange uppercase tracking-wider">
-                  ◤ Client Progress Tracking
-                </span>
+              {/* Construction Progress Tracking (Applies ONLY to client projects) */}
+              {activeTab === "client" && (
+                <div className="border-t border-border pt-4 mt-6 space-y-4">
+                  <span className="mono-label block text-xs font-bold text-orange uppercase tracking-wider">
+                    ◤ Client Progress & Blueprint
+                  </span>
 
-                <div className="grid gap-4 md:grid-cols-3 items-center bg-offwhite/50 p-4 border border-border rounded font-sans">
-                  <div className="md:col-span-1">
-                    <div className="flex justify-between items-center mb-1">
-                      <label className="mono-label text-[10px] text-navy font-semibold">Construction Progress</label>
-                      <span className="font-mono text-xs text-orange font-bold">{currentProject.progress_percent ?? 0}%</span>
+                  <div className="grid gap-4 md:grid-cols-3 items-center bg-offwhite/50 p-4 border border-border rounded font-sans">
+                    <div className="md:col-span-1">
+                      <div className="flex justify-between items-center mb-1">
+                        <label className="mono-label text-[10px] text-navy font-semibold">Construction Progress</label>
+                        <span className="font-mono text-xs text-orange font-bold">{currentProject.progress_percent ?? 0}%</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0"
+                        max="100"
+                        step="5"
+                        value={currentProject.progress_percent ?? 0}
+                        onChange={(e) => setCurrentProject({ ...currentProject, progress_percent: Number(e.target.value) })}
+                        className="w-full h-1 bg-border rounded-lg appearance-none cursor-pointer accent-orange"
+                      />
                     </div>
-                    <input
-                      type="range"
-                      min="0"
-                      max="100"
-                      step="5"
-                      value={currentProject.progress_percent ?? 0}
-                      onChange={(e) => setCurrentProject({ ...currentProject, progress_percent: Number(e.target.value) })}
-                      className="w-full h-1 bg-border rounded-lg appearance-none cursor-pointer accent-orange"
-                    />
-                  </div>
-                  <div className="md:col-span-2">
-                    <label className="mono-label block text-[10px] text-navy font-semibold mb-1">Progress Notes / Site Log</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. Concrete slab cured. Flooring work started."
-                      value={currentProject.progress_notes || ""}
-                      onChange={(e) => setCurrentProject({ ...currentProject, progress_notes: e.target.value })}
-                      className="w-full border border-border bg-card px-3 py-1.5 text-navy text-xs outline-none focus:border-orange rounded"
-                    />
+                    <div className="md:col-span-2">
+                      <label className="mono-label block text-[10px] text-navy font-semibold mb-1">CAD Blueprint File URL</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. /uploads/blueprint.dwg or https://path-to-file.dwg"
+                        value={currentProject.source_file_url || ""}
+                        onChange={(e) => setCurrentProject({ ...currentProject, source_file_url: e.target.value })}
+                        className="w-full border border-border bg-card px-3 py-1.5 text-navy text-xs outline-none focus:border-orange rounded"
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
 
               <div className="flex gap-3 justify-end pt-4 border-t border-border mt-6">
                 <button
@@ -1079,6 +1298,78 @@ export default function AdminPortal() {
                   ) : (
                     <>{isEditing ? "Save Changes" : "Create Project"}</>
                   )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {/* Progress Logs Modal */}
+      {showLogsModal && selectedProjectForLogs && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm overflow-y-auto">
+          <div className="bg-card w-full max-w-2xl border border-border shadow-lg p-6 md:p-8 rounded my-8 max-h-[85vh] flex flex-col">
+            <div className="flex justify-between items-start mb-4 pb-2 border-b border-border">
+              <div>
+                <h3 className="font-display text-xl font-bold text-navy">
+                  Project Site Progress Logs
+                </h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Logs for: <strong className="text-navy">{selectedProjectForLogs.title}</strong> (Client: {selectedProjectForLogs.client_name})
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowLogsModal(false)}
+                className="text-muted-foreground hover:text-navy text-xs font-mono border border-border px-2 py-1 hover:bg-muted cursor-pointer"
+                style={{ borderRadius: 2 }}
+              >
+                Close [X]
+              </button>
+            </div>
+
+            {/* Logs List Area */}
+            <div className="flex-1 overflow-y-auto mb-6 pr-2 space-y-3 min-h-[250px]">
+              {isLoadingLogs ? (
+                <div className="flex justify-center items-center py-10 gap-2">
+                  <Loader2 className="animate-spin text-orange h-5 w-5" />
+                  <span className="text-xs font-mono text-muted-foreground">Loading site logs...</span>
+                </div>
+              ) : logs.length === 0 ? (
+                <div className="text-center py-12 text-xs font-mono text-muted-foreground italic bg-offwhite/50 border border-dashed border-border rounded">
+                  No log entries recorded for this project yet.
+                </div>
+              ) : (
+                logs.map((log) => (
+                  <div key={log.id} className="p-3 border border-border bg-offwhite/40 rounded space-y-1">
+                    <div className="flex justify-between text-[10px] font-mono text-muted-foreground">
+                      <span>Log Row #{log.id}</span>
+                      <span>{log.created_at ? new Date(log.created_at).toLocaleString("en-IN") : ""}</span>
+                    </div>
+                    <p className="text-sm text-navy font-sans whitespace-pre-wrap">{log.note}</p>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Add New Log Note Form */}
+            <form onSubmit={handleAddLogSubmit} className="pt-4 border-t border-border space-y-3">
+              <div>
+                <label className="mono-label block text-[10px] text-navy font-semibold mb-1">Add Site Progress Note</label>
+                <textarea
+                  rows={3}
+                  required
+                  placeholder="Describe the latest site developments or construction milestone completed..."
+                  value={newLogNote}
+                  onChange={(e) => setNewLogNote(e.target.value)}
+                  className="w-full border border-border bg-offwhite px-3 py-2 text-navy text-sm outline-none focus:border-orange rounded"
+                />
+              </div>
+              <div className="flex justify-end">
+                <button
+                  type="submit"
+                  className="btn-primary px-4 py-2 text-xs md:text-sm cursor-pointer"
+                >
+                  Post Progress Log
                 </button>
               </div>
             </form>

@@ -9,9 +9,12 @@ export function Footer() {
       <div className="relative mx-auto grid max-w-7xl gap-10 px-5 py-16 lg:grid-cols-4 lg:px-8">
         <div className="lg:col-span-2">
           <div className="flex items-center gap-3">
-            <span className="grid h-11 w-11 place-items-center bg-orange text-white" style={{ borderRadius: 2 }}>
-              <span className="font-display text-lg font-bold">NG</span>
-            </span>
+            <img
+              src="/logo.jpg"
+              alt="Next G Logo"
+              className="h-11 w-11 shrink-0 object-cover rounded"
+              style={{ borderRadius: 2 }}
+            />
             <div>
               <div className="mono-label text-amber">Next G Engineers</div>
               <div className="font-display text-lg font-semibold">Promoters Pvt Ltd</div>
