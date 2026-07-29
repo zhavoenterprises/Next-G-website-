@@ -327,50 +327,7 @@ export const onRequest = async (context: {
     return apiResponse({ authenticated });
   }
 
-  // GET /api/client/projects
-  if (url.pathname === "/api/client/projects" && request.method === "GET") {
-    const phone = url.searchParams.get("phone");
-    if (!phone) {
-      return apiResponse({ error: "Phone number parameter is required" }, 400);
-    }
-    try {
-      const { results } = await env.DB.prepare(
-        "SELECT * FROM client_projects WHERE client_phone = ? ORDER BY id DESC"
-      )
-        .bind(phone)
-        .all();
 
-      const standard = results.filter((p: any) => p.category !== "BOQ");
-      const boq = results.filter((p: any) => p.category === "BOQ");
-
-      return apiResponse({ standard, boq });
-    } catch (e: any) {
-      return apiResponse({ error: e.message }, 500);
-    }
-  }
-
-  // GET /api/client/projects/:id/logs
-  if (
-    url.pathname.startsWith("/api/client/projects/") &&
-    url.pathname.endsWith("/logs") &&
-    request.method === "GET"
-  ) {
-    const parts = url.pathname.split("/");
-    const id = parseInt(parts[4], 10);
-    if (isNaN(id)) {
-      return apiResponse({ error: "Invalid project ID" }, 400);
-    }
-    try {
-      const { results } = await env.DB.prepare(
-        "SELECT * FROM progress_logs WHERE project_id = ? ORDER BY created_at DESC"
-      )
-        .bind(id)
-        .all();
-      return apiResponse(results);
-    } catch (e: any) {
-      return apiResponse({ error: e.message }, 500);
-    }
-  }
 
   // ----------------------------------------------------
   // ADMIN SERVICE INTERCEPTOR (AUTHENTICATED)
