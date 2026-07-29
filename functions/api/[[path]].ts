@@ -19,6 +19,15 @@ async function initializeDatabase(db: any) {
 
   await db.exec("CREATE TABLE IF NOT EXISTS boq_line_items (id INTEGER PRIMARY KEY AUTOINCREMENT, boq_project_id INTEGER REFERENCES boq_projects(id) ON DELETE CASCADE, item_name TEXT, unit TEXT, quantity REAL, rate REAL, amount REAL);");
 
+  // Clean client_projects if it is the old schema (missing category)
+  try {
+    const clientProjectsSchema = await db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='client_projects'").first();
+    if (clientProjectsSchema && clientProjectsSchema.sql && !clientProjectsSchema.sql.includes("category")) {
+      await db.exec("DROP TABLE IF EXISTS progress_logs;");
+      await db.exec("DROP TABLE IF EXISTS client_projects;");
+    }
+  } catch (e) {}
+
   // Create decoupled client tracker tables
   await db.exec("CREATE TABLE IF NOT EXISTS client_projects (id INTEGER PRIMARY KEY AUTOINCREMENT, category TEXT CHECK(category IN ('2D','3D','structure','BOQ')), title TEXT NOT NULL, area TEXT, planning_details TEXT, description TEXT, image_url TEXT, other_info TEXT, status TEXT DEFAULT 'assigned' CHECK(status IN ('assigned','completed','paid')), client_name TEXT, client_phone TEXT, progress_percent INTEGER DEFAULT 0, source_file_url TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP);");
 
