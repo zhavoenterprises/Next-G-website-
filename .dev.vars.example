@@ -1,0 +1,22 @@
+# Example environment variables for local development with Wrangler.
+# Copy this file to `.dev.vars` (which is gitignored) and fill in real values.
+# In production, set these as Secrets in the Cloudflare Pages dashboard —
+# NEVER commit real values to git.
+
+# Required: bcrypt hash of the admin password.
+# Generate one with:  node -e "console.log(require('bcryptjs').hashSync('YOUR_PASSWORD', 10))"
+ADMIN_PASSWORD_HASH=
+
+# Required: random secret used to sign admin session cookies (HMAC-SHA256).
+# The app FAILS CLOSED (no admin login) if this is unset — there is no fallback.
+# Generate one with:  node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
+SESSION_SECRET=
+
+# Optional: Cloudflare Turnstile secret key (server-side bot protection on login).
+# Bot verification is enforced only when this is set. Pair it with the frontend
+# build variable VITE_TURNSTILE_SITE_KEY.
+TURNSTILE_SECRET=
+
+# Optional (frontend build var, exposed to the browser — this is a PUBLIC key):
+# the Turnstile site key. Set in Cloudflare Pages build environment variables.
+VITE_TURNSTILE_SITE_KEY=

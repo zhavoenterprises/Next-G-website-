@@ -4,6 +4,7 @@ import {
   BarChart3, PieChart, TrendingUp, Sparkles, Download
 } from "lucide-react";
 import { COMPANY } from "@/lib/site-data";
+import Turnstile, { isTurnstileEnabled } from "@/components/site/Turnstile";
 
 interface BOQLineItem {
   id?: number;
@@ -46,6 +47,8 @@ export default function AdminPortal() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loginError, setLoginError] = useState("");
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const [turnstileReset, setTurnstileReset] = useState(0);
 
   const [activeTab, setActiveTab] = useState<"2D" | "3D" | "structure" | "BOQ" | "client">("2D");
   const [projects, setProjects] = useState<Project[]>([]);
@@ -310,11 +313,15 @@ export default function AdminPortal() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError("");
+    if (isTurnstileEnabled() && !turnstileToken) {
+      setLoginError("Please complete the verification challenge.");
+      return;
+    }
     try {
       const res = await fetch("/api/admin/login", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ username, password, turnstileToken }),
       });
       const data = await res.json() as { success?: boolean; error?: string };
       if (res.ok && data.success) {
@@ -322,9 +329,14 @@ export default function AdminPortal() {
         fetchProjects();
       } else {
         setLoginError(data.error ?? "Invalid username or password.");
+        // Turnstile tokens are single-use — reset the widget for the next attempt.
+        setTurnstileToken("");
+        setTurnstileReset((n) => n + 1);
       }
     } catch (err) {
       setLoginError("Failed to connect to authentication server.");
+      setTurnstileToken("");
+      setTurnstileReset((n) => n + 1);
     }
   };
 
@@ -736,6 +748,12 @@ export default function AdminPortal() {
                   <span>{loginError}</span>
                 </div>
               )}
+
+              <Turnstile
+                action="admin_login"
+                onToken={setTurnstileToken}
+                resetSignal={turnstileReset}
+              />
 
               <div>
                 <button
